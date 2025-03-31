@@ -77,47 +77,53 @@ export function useAuth(): AuthResponse {
     // Cargar detalles del usuario
     const loadUserDetails = async (userId: string) => {
         try {
-            // Verificar primero si el usuario existe en la tabla users
-            const { data, error, count } = await supabase
-                .from('users')
-                .select('*', { count: 'exact' })
-                .eq('id', userId);
+            // Utilizar la función RPC (Remote Procedure Call) para obtener o crear usuario
+            // (asumiendo que tienes esta función en Supabase)
+            const { data, error } = await supabase
+                .rpc('get_or_create_user_profile', {
+                    user_id: userId,
+                    user_email: user?.email || ''
+                });
 
-            if (error) throw error;
-
-            // Si no se encontró el usuario, crear un registro en la tabla users
-            if (count === 0 || !data || data.length === 0) {
-                // Obtener información del usuario de auth
-                const { data: userData, error: userError } = await supabase.auth.getUser();
+            if (error) {
+                // Si la función RPC no existe, intentamos el enfoque directo con manejador de errores
+                console.log('Fallback: obteniendo usuario directamente:', error);
                 
-                if (userError) throw userError;
-                
-                if (userData && userData.user) {
-                    // Crear un nuevo registro en la tabla users
-                    const { data: newUser, error: insertError } = await supabase
-                        .from('users')
-                        .insert([
-                            {
-                                id: userId,
-                                email: userData.user.email || '',
-                                full_name: userData.user.email?.split('@')[0] || 'Usuario',
-                                role: 'viewer', // Por defecto, los nuevos usuarios son viewers
-                            }
-                        ])
-                        .select()
-                        .single();
+                // Intentar obtener el usuario primero
+                const { data: userData, error: fetchError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', userId)
+                    .maybeSingle();
 
-                    if (insertError) throw insertError;
+                if (fetchError) {
+                    console.error('Error al obtener usuario:', fetchError);
+                    return;
+                }
+
+                if (userData) {
+                    setUserDetails(userData as User);
+                } else {
+                    // Si la consulta no falla pero no devuelve datos,
+                    // el usuario posiblemente no exista, pero no podemos crearlo debido a RLS
+                    console.log('Usuario no encontrado y no se puede crear debido a RLS');
                     
-                    setUserDetails(newUser as User);
+                    // Podríamos establecer un userDetails temporal hasta que se resuelva el problema
+                    setUserDetails({
+                        id: userId,
+                        email: user?.email || '',
+                        full_name: 'Usuario Temporal',
+                        role: 'viewer',
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    } as User);
                 }
             } else {
-                // Si se encontró el usuario, establecer los detalles
-                setUserDetails(data[0] as User);
+                // Si la función RPC existe y se ejecuta correctamente
+                setUserDetails(data as User);
             }
         } catch (error) {
             console.error('Error al cargar detalles del usuario:', error);
-            // No establecer el userDetails como null aquí para mantener la sesión activa
         }
     };
 
@@ -143,28 +149,17 @@ export function useAuth(): AuthResponse {
             const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
+                options: {
+                    data: {
+                        full_name: fullName,
+                    },
+                },
             });
 
             if (error) throw error;
 
-            // Si el registro es exitoso, crear el perfil en la tabla users
-            if (data?.user) {
-                const { error: profileError } = await supabase
-                    .from('users')
-                    .insert([
-                        {
-                            id: data.user.id,
-                            email,
-                            full_name: fullName,
-                            role: 'viewer', // Por defecto, los nuevos usuarios son viewers
-                        }
-                    ]);
-
-                if (profileError) {
-                    console.error('Error al crear el perfil:', profileError);
-                    // No lanzar el error aquí para permitir que el registro continúe
-                }
-            }
+            // Nota: Ya no intentamos insertar directamente en la tabla users
+            // Este paso debe ser manejado por un trigger de Supabase o una función RPC
 
             return { error: null };
         } catch (error) {
