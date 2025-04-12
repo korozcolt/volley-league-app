@@ -1,3 +1,5 @@
+import "./global.css";
+
 import * as SplashScreen from 'expo-splash-screen';
 
 import { AuthProvider } from '../lib/context/AuthContext';

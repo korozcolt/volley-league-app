@@ -1,16 +1,15 @@
-import { Alert, FlatList, Image, RefreshControl, StyleSheet, TouchableOpacity } from 'react-native';
+import { Alert, FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { Match, MatchStatus, Tournament, TournamentStatus } from '@/lib/types/models';
 import { useEffect, useState } from 'react';
 
-import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/lib/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+
+// Con NativeWind v4, usamos directamente className sin styled
 
 type MatchWithTeams = Match & {
   home_team: {
@@ -38,6 +37,12 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const colorScheme = useColorScheme() as 'light' | 'dark';
   const { userDetails, isAdmin } = useAuthContext();
+  
+  // Determinar el color de fondo basado en el tema
+  const bgColor = colorScheme === 'dark' ? 'bg-gray-900' : 'bg-gray-50';
+  const cardBgColor = colorScheme === 'dark' ? 'bg-gray-800' : 'bg-white';
+  const textColor = colorScheme === 'dark' ? 'text-white' : 'text-gray-900';
+  const textSecondaryColor = colorScheme === 'dark' ? 'text-gray-300' : 'text-gray-600';
 
   useEffect(() => {
     loadDashboardData();
@@ -151,76 +156,80 @@ export default function HomeScreen() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  const getStatusColor = (status: TournamentStatus) => {
+    return status === TournamentStatus.UPCOMING ? 'bg-green-600' : 'bg-blue-600';
+  };
+
   const renderMatchItem = ({ item }: { item: MatchWithTeams }) => {
     return (
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: Colors[colorScheme].card }]}
+      <TouchableOpacity 
+        className={`${cardBgColor} rounded-lg p-4 mb-4 shadow-sm`}
         onPress={() => navigateToMatchDetails(item.id)}
       >
-        <ThemedView style={styles.matchHeader}>
-          <ThemedText style={styles.matchTournament}>
+        <View className="flex-row justify-between mb-3">
+          <Text className={`${textColor} font-semibold`}>
             {item.tournament?.name || 'Torneo'}
-          </ThemedText>
-          <ThemedText style={styles.matchDate}>
+          </Text>
+          <Text className={`${textSecondaryColor} text-sm`}>
             {formatMatchDate(item.match_date || null)}
-          </ThemedText>
-        </ThemedView>
+          </Text>
+        </View>
 
-        <ThemedView style={styles.matchTeams}>
-          <ThemedView style={styles.teamInfo}>
+        <View className="flex-row justify-between items-center mb-3">
+          <View className="flex-1 items-center">
             {item.home_team?.logo_url ? (
               <Image 
                 source={{ uri: item.home_team.logo_url }} 
-                style={styles.teamLogo} 
+                className="w-12 h-12 rounded-full mb-2" 
                 resizeMode="contain"
               />
             ) : (
-              <ThemedView style={styles.placeholderLogo}>
-                <ThemedText style={styles.placeholderText}>
+              <View className="w-12 h-12 rounded-full bg-blue-500 items-center justify-center mb-2">
+                <Text className="text-white text-lg font-bold">
                   {item.home_team?.name.charAt(0) || 'H'}
-                </ThemedText>
-              </ThemedView>
+                </Text>
+              </View>
             )}
-            <ThemedText style={styles.teamName} numberOfLines={1}>
+            <Text className={`${textColor} text-center`} numberOfLines={1}>
               {item.home_team?.name || 'Local'}
-            </ThemedText>
-          </ThemedView>
+            </Text>
+          </View>
 
-          <ThemedView style={styles.vsContainer}>
-            <ThemedText style={styles.vsText}>VS</ThemedText>
-          </ThemedView>
+          <View className="flex-1 items-center">
+            <Text className={`${textColor} font-bold text-base`}>VS</Text>
+          </View>
 
-          <ThemedView style={styles.teamInfo}>
+          <View className="flex-1 items-center">
             {item.away_team?.logo_url ? (
               <Image 
                 source={{ uri: item.away_team.logo_url }} 
-                style={styles.teamLogo} 
+                className="w-12 h-12 rounded-full mb-2" 
                 resizeMode="contain"
               />
             ) : (
-              <ThemedView style={styles.placeholderLogo}>
-                <ThemedText style={styles.placeholderText}>
+              <View className="w-12 h-12 rounded-full bg-blue-500 items-center justify-center mb-2">
+                <Text className="text-white text-lg font-bold">
                   {item.away_team?.name.charAt(0) || 'V'}
-                </ThemedText>
-              </ThemedView>
+                </Text>
+              </View>
             )}
-            <ThemedText style={styles.teamName} numberOfLines={1}>
+            <Text className={`${textColor} text-center`} numberOfLines={1}>
               {item.away_team?.name || 'Visitante'}
-            </ThemedText>
-          </ThemedView>
-        </ThemedView>
+            </Text>
+          </View>
+        </View>
 
         {item.location && (
-          <ThemedView style={styles.matchFooter}>
+          <View className="flex-row items-center">
             <Ionicons 
               name="location-outline" 
               size={16} 
-              color={Colors[colorScheme].text} 
+              color={colorScheme === 'dark' ? '#fff' : '#000'} 
             />
-            <ThemedText style={styles.locationText}>
+            <Text className={`${textSecondaryColor} text-sm ml-1`}>
               {item.location}
-            </ThemedText>
-          </ThemedView>
+            </Text>
+          </View>
         )}
       </TouchableOpacity>
     );
@@ -229,72 +238,65 @@ export default function HomeScreen() {
   const renderTournamentItem = ({ item }: { item: Tournament }) => {
     return (
       <TouchableOpacity
-        style={[styles.card, { backgroundColor: Colors[colorScheme].card }]}
+        className={`${cardBgColor} rounded-lg p-4 mb-4 shadow-sm`}
         onPress={() => navigateToTournamentDetails(item.id)}
       >
-        <ThemedView style={styles.tournamentHeader}>
-          <ThemedText type="defaultSemiBold" style={styles.tournamentName}>
+        <View className="flex-row justify-between items-center mb-3">
+          <Text className={`${textColor} font-semibold flex-1`}>
             {item.name}
-          </ThemedText>
-          <ThemedView
-            style={[
-              styles.statusBadge,
-              { 
-                backgroundColor: item.status === TournamentStatus.UPCOMING 
-                  ? '#4CAF50' 
-                  : '#2196F3' 
-              }
-            ]}
+          </Text>
+          <View
+            className={`${getStatusColor(item.status)} px-2 py-1 rounded`}
           >
-            <ThemedText style={styles.statusText}>
+            <Text className="text-white text-xs font-bold">
               {item.status === TournamentStatus.UPCOMING ? 'Próximo' : 'En curso'}
-            </ThemedText>
-          </ThemedView>
-        </ThemedView>
+            </Text>
+          </View>
+        </View>
 
-        <ThemedView style={styles.tournamentDates}>
-          <ThemedView style={styles.dateItem}>
-            <ThemedText style={styles.dateLabel}>Inicio:</ThemedText>
-            <ThemedText style={styles.dateValue}>
+        <View className="flex-row mb-3">
+          <View className="flex-row mr-4">
+            <Text className={`${textColor} font-bold mr-1`}>Inicio:</Text>
+            <Text className={textSecondaryColor}>
               {formatTournamentDate(item.start_date)}
-            </ThemedText>
-          </ThemedView>
+            </Text>
+          </View>
           {item.end_date && (
-            <ThemedView style={styles.dateItem}>
-              <ThemedText style={styles.dateLabel}>Fin:</ThemedText>
-              <ThemedText style={styles.dateValue}>
+            <View className="flex-row">
+              <Text className={`${textColor} font-bold mr-1`}>Fin:</Text>
+              <Text className={textSecondaryColor}>
                 {formatTournamentDate(item.end_date)}
-              </ThemedText>
-            </ThemedView>
+              </Text>
+            </View>
           )}
-        </ThemedView>
+        </View>
 
         {item.location && (
-          <ThemedView style={styles.tournamentFooter}>
+          <View className="flex-row items-center">
             <Ionicons 
               name="location-outline" 
               size={16} 
-              color={Colors[colorScheme].text} 
+              color={colorScheme === 'dark' ? '#fff' : '#000'} 
             />
-            <ThemedText style={styles.locationText}>
+            <Text className={`${textSecondaryColor} text-sm ml-1`}>
               {item.location}
-            </ThemedText>
-          </ThemedView>
+            </Text>
+          </View>
         )}
       </TouchableOpacity>
     );
   };
 
   const StatCard = ({ icon, title, value }: { icon: string, title: string, value: number | string }) => (
-    <ThemedView style={[styles.statCard, { backgroundColor: Colors[colorScheme].card }]}>
+    <View className={`${cardBgColor} rounded-lg p-4 mx-1 flex-1 items-center shadow-sm`}>
       <Ionicons name={icon as any} size={24} color="#4a90e2" />
-      <ThemedText style={styles.statValue}>{value}</ThemedText>
-      <ThemedText style={styles.statTitle}>{title}</ThemedText>
-    </ThemedView>
+      <Text className={`${textColor} text-lg font-bold my-2`}>{value}</Text>
+      <Text className={textSecondaryColor}>{title}</Text>
+    </View>
   );
 
   return (
-    <ThemedView style={styles.container}>
+    <View className={`${bgColor} flex-1`}>
       <FlatList
         data={[]} // Solo usamos FlatList por su capacidad de hacer scroll y refresh
         renderItem={null}
@@ -304,16 +306,16 @@ export default function HomeScreen() {
         }
         ListHeaderComponent={
           <>
-            <ThemedView style={styles.welcomeSection}>
-              <ThemedText type="title">
+            <View className="p-4 mb-6">
+              <Text className={`${textColor} text-2xl font-bold`}>
                 ¡Bienvenido{userDetails?.full_name ? `, ${userDetails.full_name.split(' ')[0]}` : ''}!
-              </ThemedText>
-              <ThemedText>
+              </Text>
+              <Text className={textSecondaryColor}>
                 {isAdmin() ? 'Panel de administración de la liga de voleibol' : 'Liga de voleibol'}
-              </ThemedText>
-            </ThemedView>
+              </Text>
+            </View>
 
-            <ThemedView style={styles.statsContainer}>
+            <View className="flex-row px-4 mb-6">
               <StatCard 
                 icon="people-outline" 
                 title="Equipos" 
@@ -329,210 +331,57 @@ export default function HomeScreen() {
                 title="Torneos activos" 
                 value={activeTournaments.length} 
               />
-            </ThemedView>
+            </View>
 
-            <ThemedView style={styles.sectionHeader}>
-              <ThemedText type="subtitle">Próximos partidos</ThemedText>
+            <View className="flex-row justify-between items-center px-4 mb-3 mt-2">
+              <Text className={`${textColor} text-lg font-semibold`}>Próximos partidos</Text>
               <TouchableOpacity onPress={() => router.push('/matches')}>
-                <ThemedText style={styles.viewAllText}>Ver todos</ThemedText>
+                <Text className="text-blue-500 font-semibold">Ver todos</Text>
               </TouchableOpacity>
-            </ThemedView>
+            </View>
 
-            {loading ? (
-              <ThemedText style={styles.loadingText}>Cargando próximos partidos...</ThemedText>
-            ) : upcomingMatches.length === 0 ? (
-              <ThemedText style={styles.emptyText}>No hay próximos partidos programados</ThemedText>
-            ) : (
-              upcomingMatches.map(match => renderMatchItem({ item: match }))
-            )}
+            <View className="px-4">
+              {loading ? (
+                <Text className={`${textSecondaryColor} text-center my-5 italic`}>
+                  Cargando próximos partidos...
+                </Text>
+              ) : upcomingMatches.length === 0 ? (
+                <Text className={`${textSecondaryColor} text-center my-5 italic`}>
+                  No hay próximos partidos programados
+                </Text>
+              ) : (
+                upcomingMatches.map((match, index) => (
+                  <View key={match.id || index}>{renderMatchItem({ item: match })}</View>
+                ))
+              )}
+            </View>
 
-            <ThemedView style={styles.sectionHeader}>
-              <ThemedText type="subtitle">Torneos activos</ThemedText>
+            <View className="flex-row justify-between items-center px-4 mb-3 mt-2">
+              <Text className={`${textColor} text-lg font-semibold`}>Torneos activos</Text>
               <TouchableOpacity onPress={() => router.push('/tournaments')}>
-                <ThemedText style={styles.viewAllText}>Ver todos</ThemedText>
+                <Text className="text-blue-500 font-semibold">Ver todos</Text>
               </TouchableOpacity>
-            </ThemedView>
+            </View>
 
-            {loading ? (
-              <ThemedText style={styles.loadingText}>Cargando torneos activos...</ThemedText>
-            ) : activeTournaments.length === 0 ? (
-              <ThemedText style={styles.emptyText}>No hay torneos activos actualmente</ThemedText>
-            ) : (
-              activeTournaments.map(tournament => renderTournamentItem({ item: tournament }))
-            )}
+            <View className="px-4">
+              {loading ? (
+                <Text className={`${textSecondaryColor} text-center my-5 italic`}>
+                  Cargando torneos activos...
+                </Text>
+              ) : activeTournaments.length === 0 ? (
+                <Text className={`${textSecondaryColor} text-center my-5 italic`}>
+                  No hay torneos activos actualmente
+                </Text>
+              ) : (
+                activeTournaments.map((tournament, index) => (
+                  <View key={tournament.id || index}>{renderTournamentItem({ item: tournament })}</View>
+                ))
+              )}
+            </View>
           </>
         }
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={{ paddingBottom: 16 }}
       />
-    </ThemedView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-  },
-  welcomeSection: {
-    marginBottom: 24,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 8,
-    marginHorizontal: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginVertical: 8,
-  },
-  statTitle: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  viewAllText: {
-    color: '#4a90e2',
-    fontWeight: 'bold',
-  },
-  card: {
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  matchHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  matchTournament: {
-    fontWeight: 'bold',
-  },
-  matchDate: {
-    fontSize: 14,
-  },
-  matchTeams: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  teamInfo: {
-    flex: 2,
-    alignItems: 'center',
-  },
-  teamLogo: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginBottom: 8,
-  },
-  placeholderLogo: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#4a90e2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  placeholderText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  teamName: {
-    textAlign: 'center',
-    width: '100%',
-  },
-  vsContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  vsText: {
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  matchFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tournamentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  tournamentName: {
-    fontSize: 16,
-    flex: 1,
-  },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  tournamentDates: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  dateItem: {
-    flexDirection: 'row',
-    marginRight: 16,
-  },
-  dateLabel: {
-    fontWeight: 'bold',
-    marginRight: 4,
-  },
-  dateValue: {
-    // por defecto
-  },
-  tournamentFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  locationText: {
-    fontSize: 14,
-    marginLeft: 4,
-  },
-  loadingText: {
-    textAlign: 'center',
-    marginVertical: 20,
-    fontStyle: 'italic',
-  },
-  emptyText: {
-    textAlign: 'center',
-    marginVertical: 20,
-    fontStyle: 'italic',
-  },
-});
