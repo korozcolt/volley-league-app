@@ -1,19 +1,20 @@
-// app/(tabs)/tournaments.tsx
+import { ActivityIndicator, Alert, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { Tournament, TournamentStatus } from '@/lib/types/models';
+// app/(tabs)/tournaments.tsx - Actualizado para usar Provider Pattern
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { router } from 'expo-router';
 
+import { Colors } from '@/constants/Colors';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { supabase } from '@/lib/supabase';
-import { Tournament, TournamentStatus } from '@/lib/types/models';
+import { router } from 'expo-router';
+import { tournaments } from '@/lib/providers'; // 🎯 Ahora usa el provider factory
 import { useAuthContext } from '@/lib/context/AuthContext';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function TournamentsScreen() {
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [tournamentsList, setTournamentsList] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const colorScheme = useColorScheme() as 'light' | 'dark';
   const { isAdmin } = useAuthContext();
 
@@ -24,22 +25,32 @@ export default function TournamentsScreen() {
   const fetchTournaments = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('tournaments')
-        .select('*')
-        .order('start_date', { ascending: false });
+      setError(null);
+      
+      // 🎯 Usar provider agnóstico - funciona con cualquier backend
+      const { data, error: fetchError } = await tournaments.getAll({
+        // Opcional: filtros específicos
+        // status: ['upcoming', 'in_progress'],
+        // search: ''
+      });
 
-      if (error) {
-        throw error;
+      if (fetchError) {
+        throw new Error(fetchError);
       }
 
-      setTournaments(data as Tournament[]);
+      setTournamentsList(data);
     } catch (error) {
       console.error('Error al cargar torneos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los torneos');
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      setError(errorMessage);
+      Alert.alert('Error', `No se pudieron cargar los torneos: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    await fetchTournaments();
   };
 
   const getStatusColor = (status: TournamentStatus) => {
@@ -113,13 +124,50 @@ export default function TournamentsScreen() {
           {item.location && (
             <ThemedText>Ubicación: {item.location}</ThemedText>
           )}
+          {item.description && (
+            <ThemedText numberOfLines={2} style={styles.description}>
+              {item.description}
+            </ThemedText>
+          )}
         </ThemedView>
       </TouchableOpacity>
     );
   };
 
+  // 🎯 COMPONENTE DE ERROR REUTILIZABLE
+  const ErrorComponent = ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+    <ThemedView style={styles.errorContainer}>
+      <ThemedText style={styles.errorText}>❌ {error}</ThemedText>
+      <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+        <ThemedText style={styles.retryButtonText}>Reintentar</ThemedText>
+      </TouchableOpacity>
+    </ThemedView>
+  );
+
+  // 🎯 COMPONENTE DE ESTADO VACÍO
+  const EmptyStateComponent = () => (
+    <ThemedView style={styles.emptyState}>
+      <ThemedText style={styles.emptyStateIcon}>🏆</ThemedText>
+      <ThemedText style={styles.emptyStateText}>
+        No hay torneos disponibles
+      </ThemedText>
+      <ThemedText style={styles.emptyStateSubtext}>
+        Los torneos aparecerán aquí cuando se creen
+      </ThemedText>
+      {isAdmin() && (
+        <TouchableOpacity 
+          style={[styles.createButton, styles.emptyStateButton]}
+          onPress={navigateToCreateTournament}
+        >
+          <ThemedText style={styles.createButtonText}>Crear primer torneo</ThemedText>
+        </TouchableOpacity>
+      )}
+    </ThemedView>
+  );
+
   return (
     <ThemedView style={styles.container}>
+      {/* 🎯 HEADER CON TÍTULO Y BOTÓN DE CREAR */}
       <ThemedView style={styles.header}>
         <ThemedText type="title">Torneos</ThemedText>
         {isAdmin() && (
@@ -132,32 +180,58 @@ export default function TournamentsScreen() {
         )}
       </ThemedView>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#4a90e2" style={styles.loader} />
-      ) : tournaments.length === 0 ? (
-        <ThemedView style={styles.emptyState}>
-          <ThemedText style={styles.emptyStateText}>
-            No hay torneos disponibles
-          </ThemedText>
-          {isAdmin() && (
-            <TouchableOpacity 
-              style={[styles.createButton, styles.emptyStateButton]}
-              onPress={navigateToCreateTournament}
-            >
-              <ThemedText style={styles.createButtonText}>Crear primer torneo</ThemedText>
-            </TouchableOpacity>
-          )}
+      {/* 🎯 ESTADÍSTICAS RÁPIDAS */}
+      {!loading && !error && tournamentsList.length > 0 && (
+        <ThemedView style={styles.statsContainer}>
+          <ThemedView style={styles.statItem}>
+            <ThemedText style={styles.statNumber}>
+              {tournamentsList.filter(t => t.status === TournamentStatus.UPCOMING).length}
+            </ThemedText>
+            <ThemedText style={styles.statLabel}>Próximos</ThemedText>
+          </ThemedView>
+          <ThemedView style={styles.statItem}>
+            <ThemedText style={styles.statNumber}>
+              {tournamentsList.filter(t => t.status === TournamentStatus.IN_PROGRESS).length}
+            </ThemedText>
+            <ThemedText style={styles.statLabel}>En curso</ThemedText>
+          </ThemedView>
+          <ThemedView style={styles.statItem}>
+            <ThemedText style={styles.statNumber}>
+              {tournamentsList.filter(t => t.status === TournamentStatus.COMPLETED).length}
+            </ThemedText>
+            <ThemedText style={styles.statLabel}>Completados</ThemedText>
+          </ThemedView>
         </ThemedView>
+      )}
+
+      {/* 🎯 CONTENIDO PRINCIPAL */}
+      {loading ? (
+        <ThemedView style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#4a90e2" />
+          <ThemedText style={styles.loadingText}>Cargando torneos...</ThemedText>
+        </ThemedView>
+      ) : error ? (
+        <ErrorComponent error={error} onRetry={handleRefresh} />
+      ) : tournamentsList.length === 0 ? (
+        <EmptyStateComponent />
       ) : (
         <FlatList
-          data={tournaments}
+          data={tournamentsList}
           renderItem={renderTournamentItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           initialNumToRender={10}
-          onRefresh={fetchTournaments}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          onRefresh={handleRefresh}
           refreshing={loading}
+          // 🎯 PULL TO REFRESH personalizado
+          refreshControl={
+            <ThemedView style={{ paddingTop: 10 }}>
+              {loading && <ActivityIndicator color="#4a90e2" />}
+            </ThemedView>
+          }
         />
       )}
     </ThemedView>
@@ -185,33 +259,89 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
   },
-  loader: {
+  
+  // 🎯 ESTADÍSTICAS
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+    paddingVertical: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(74, 144, 226, 0.1)',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#4a90e2',
+  },
+  statLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 4,
+  },
+
+  // 🎯 LOADING Y CENTRADO
+  centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingText: {
+    marginTop: 16,
+    opacity: 0.7,
+  },
+
+  // 🎯 ERROR
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#f44336',
+  },
+  retryButton: {
+    backgroundColor: '#4a90e2',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+
+  // 🎯 LISTA
   list: {
     paddingBottom: 20,
   },
   tournamentCard: {
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   tournamentName: {
     fontSize: 18,
     flex: 1,
+    marginRight: 8,
   },
   statusBadge: {
     paddingVertical: 4,
@@ -224,17 +354,35 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   tournamentDetails: {
-    gap: 4,
+    gap: 6,
   },
+  description: {
+    opacity: 0.7,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+
+  // 🎯 ESTADO VACÍO
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
+  emptyStateIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
   emptyStateText: {
-    fontSize: 16,
-    marginBottom: 20,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    opacity: 0.7,
+    marginBottom: 24,
     textAlign: 'center',
   },
   emptyStateButton: {
