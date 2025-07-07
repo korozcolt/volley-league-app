@@ -1,4 +1,4 @@
-// lib/providers/pocketbase/teams.ts
+// ✅ IMPORTS CORREGIDOS
 import { ITeamsProvider, TeamFilters } from '../interfaces/ITeamsProvider';
 
 import PocketBase from 'pocketbase';
@@ -249,7 +249,7 @@ export class PocketBaseTeamsProvider implements ITeamsProvider {
         goals_against: 0
       };
 
-      matches.forEach(match => {
+      matches.forEach((match: any) => {
         if (match.status === 'completed') {
           const isHome = match.home_team === id;
           const teamScore = isHome ? match.home_score : match.away_score;

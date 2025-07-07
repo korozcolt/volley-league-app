@@ -1,7 +1,7 @@
-// lib/providers/pocketbase/matches.ts
 import { IMatchesProvider, MatchFilters } from '../interfaces/IMatchesProvider';
-import { Match, MatchStatus, Team } from '@/lib/types/models';
+import { Match, MatchStatus } from '@/lib/types/models';
 
+// lib/providers/pocketbase/matches.ts - CORREGIDO
 import PocketBase from 'pocketbase';
 
 export class PocketBaseMatchesProvider implements IMatchesProvider {
@@ -24,7 +24,8 @@ export class PocketBaseMatchesProvider implements IMatchesProvider {
       }
       
       if (filters?.status && filters.status.length > 0) {
-        const statusFilter = filters.status.map(s => `status = "${s}"`).join(' || ');
+        // ✅ CORREGIDO - Usar MatchStatus enum
+        const statusFilter = filters.status.map((status: MatchStatus) => `status = "${status}"`).join(' || ');
         filterConditions.push(`(${statusFilter})`);
       }
       
@@ -322,7 +323,7 @@ export class PocketBaseMatchesProvider implements IMatchesProvider {
   /**
    * Actualizar estado del partido
    */
-  async updateStatus(matchId: string, status: string): Promise<{ data: Match | null; error: string | null }> {
+  async updateStatus(matchId: string, status: MatchStatus): Promise<{ data: Match | null; error: string | null }> {
     try {
       if (!this.pb.authStore.isValid) {
         return { data: null, error: 'Usuario no autenticado' };
@@ -422,6 +423,14 @@ export class PocketBaseMatchesProvider implements IMatchesProvider {
         return MatchStatus.CANCELLED;
       case 'postponed':
         return MatchStatus.POSTPONED;
+      case 'to_be_announced':
+      case 'tba':
+        return MatchStatus.TBA;
+      case 'to_be_confirmed':
+      case 'tbc':
+        return MatchStatus.TBC;
+      case 'tiebreaker':
+        return MatchStatus.TIEBREAKER;
       default:
         return MatchStatus.SCHEDULED;
     }

@@ -1,4 +1,13 @@
-import { Team, Tournament, TournamentFilters } from '@/lib/types/models';
+import { Team, Tournament, TournamentStatus, TournamentType } from '@/lib/types/models';
+
+// ✅ EXPORTAR TournamentFilters
+export interface TournamentFilters {
+  status?: TournamentStatus[];
+  type?: TournamentType[];
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+}
 
 export interface ITournamentsProvider {
   // CRUD básico

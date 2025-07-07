@@ -1,4 +1,4 @@
-// lib/providers/pocketbase/players.ts
+// ✅ IMPORTS CORREGIDOS
 import { IPlayersProvider, PlayerFilters } from '../interfaces/IPlayersProvider';
 import { Player, PlayerPosition } from '@/lib/types/models';
 
@@ -259,7 +259,7 @@ export class PocketBasePlayersProvider implements IPlayersProvider {
         await this.pb.collection('players').getFullList({
           filter: `team = "${player.team}" && captain = true`
         }).then(currentCaptains => {
-          currentCaptains.forEach(async (currentCaptain) => {
+          currentCaptains.forEach(async (currentCaptain: any) => {
             if (currentCaptain.id !== id) {
               await this.pb.collection('players').update(currentCaptain.id, { captain: false });
             }
@@ -312,7 +312,7 @@ export class PocketBasePlayersProvider implements IPlayersProvider {
 
       const matchIds = new Set();
       
-      events.forEach(event => {
+      events.forEach((event: any) => {
         if (event.match) matchIds.add(event.match);
         if (event.set_number) stats.sets_played.add(`${event.match}-${event.set_number}`);
         
@@ -364,6 +364,7 @@ export class PocketBasePlayersProvider implements IPlayersProvider {
       position: this.mapPocketBasePlayerPosition(pocketbasePlayer.position),
       birth_date: pocketbasePlayer.birth_date || null,
       height: pocketbasePlayer.height || null,
+      photo_url: pocketbasePlayer.photo || null,
       active: pocketbasePlayer.active ?? true,
       captain: pocketbasePlayer.captain ?? false,
       created_at: pocketbasePlayer.created || new Date().toISOString(),
@@ -399,20 +400,12 @@ export class PocketBasePlayersProvider implements IPlayersProvider {
   private mapPocketBasePlayerPosition(pocketbasePosition: string | null): PlayerPosition | null {
     if (!pocketbasePosition) return null;
     
-    switch (pocketbasePosition.toLowerCase()) {
-      case 'setter':
-        return PlayerPosition.SETTER;
-      case 'opposite':
-        return PlayerPosition.OPPOSITE;
-      case 'middle_blocker':
-        return PlayerPosition.MIDDLE_BLOCKER;
-      case 'libero':
-        return PlayerPosition.LIBERO;
-      case 'outside_hitter':
-        return PlayerPosition.OUTSIDE_HITTER;
-      default:
-        return null;
+    // Validar que es un valor válido del enum
+    if (Object.values(PlayerPosition).includes(pocketbasePosition as PlayerPosition)) {
+      return pocketbasePosition as PlayerPosition;
     }
+    
+    return null;
   }
 
   /**

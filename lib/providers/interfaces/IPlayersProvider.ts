@@ -1,5 +1,13 @@
-// lib/providers/interfaces/IPlayersProvider.ts - CORREGIDO
-import { Player, PlayerFilters, PlayerPosition } from '@/lib/types/models';
+import { Player, PlayerPosition } from '@/lib/types/models';
+
+// ✅ EXPORTAR PlayerFilters
+export interface PlayerFilters {
+  team_id?: string;
+  active?: boolean;
+  position?: PlayerPosition;
+  search?: string;
+  captain?: boolean;
+}
 
 export interface IPlayersProvider {
   // CRUD básico

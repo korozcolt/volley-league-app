@@ -1,14 +1,15 @@
+// lib/providers/pocketbase/PocketBaseProvider.ts - CORREGIDO
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IAuthProvider } from '../interfaces/IAuthProvider';
+// ✅ IMPORTS CORREGIDOS - Solo las interfaces principales
 import { IBackendProvider } from '../interfaces/IBackendProvider';
 import { IMatchesProvider } from '../interfaces/IMatchesProvider';
 import { IPlayersProvider } from '../interfaces/IPlayersProvider';
 import { IRefereeProvider } from '../interfaces/IRefereeProvider';
 import { ITeamsProvider } from '../interfaces/ITeamsProvider';
 import { ITournamentsProvider } from '../interfaces/ITournamentsProvider';
-// lib/providers/pocketbase/PocketBaseProvider.ts
 import PocketBase from 'pocketbase';
-// Importar implementaciones específicas de PocketBase
+// ✅ IMPORTS DE IMPLEMENTACIONES
 import { PocketBaseAuthProvider } from './auth';
 import { PocketBaseMatchesProvider } from './matches';
 import { PocketBasePlayersProvider } from './players';
@@ -45,7 +46,7 @@ export class PocketBaseProvider implements IBackendProvider {
       }
     });
 
-    // Inicializar providers específicos pasando la instancia de PocketBase
+    // ✅ INICIALIZAR PROVIDERS - Pasando instancia de PocketBase
     this.auth = new PocketBaseAuthProvider(this.pb);
     this.teams = new PocketBaseTeamsProvider(this.pb);
     this.tournaments = new PocketBaseTournamentsProvider(this.pb);
