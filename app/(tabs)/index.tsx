@@ -1,6 +1,6 @@
-// app/(tabs)/index.tsx - Dashboard migrado a providers
+// app/(tabs)/index.tsx - CORREGIDO
 import { Alert, FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
-import { Match, Team, Tournament } from '@/lib/types/models';
+import { Match, MatchStatus, Team, Tournament, TournamentStatus } from '@/lib/types/models';
 import { useEffect, useState } from 'react';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,7 @@ import React from 'react';
 import { router } from 'expo-router';
 import { useActiveTeams } from '@/lib/hooks/useTeams';
 import { useActiveTournaments } from '@/lib/hooks/useTournaments';
-// 🎯 IMPORTS AGNÓSTICOS - No más Supabase directo
+// ✅ IMPORTS CORREGIDOS - Backend agnóstico
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useUpcomingMatches } from '@/lib/hooks/useMatches';
@@ -166,12 +166,12 @@ export default function HomeScreen() {
           </Text>
           <View className="flex-row items-center">
             <View className={`px-2 py-1 rounded ${
-              tournament.status === 'in_progress' ? 'bg-green-100' : 'bg-blue-100'
+              tournament.status === TournamentStatus.IN_PROGRESS ? 'bg-green-100' : 'bg-blue-100'
             }`}>
               <Text className={`text-xs font-medium ${
-                tournament.status === 'in_progress' ? 'text-green-800' : 'text-blue-800'
+                tournament.status === TournamentStatus.IN_PROGRESS ? 'text-green-800' : 'text-blue-800'
               }`}>
-                {tournament.status === 'in_progress' ? 'En Progreso' : 'Próximamente'}
+                {tournament.status === TournamentStatus.IN_PROGRESS ? 'En Progreso' : 'Próximamente'}
               </Text>
             </View>
             <Text className={`text-xs ml-2 ${textSecondaryColor}`}>
@@ -280,7 +280,8 @@ export default function HomeScreen() {
             </View>
 
             {/* ⚡ ACCIONES RÁPIDAS (Solo para admins) */}
-            {isAdmin && (
+            {/* ✅ CORREGIDO - Llamar la función isAdmin() */}
+            {isAdmin() && (
               <View className="mb-6">
                 <Text className={`text-xl font-bold mb-4 ${textColor}`}>
                   Acciones Rápidas
