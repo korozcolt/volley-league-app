@@ -1,6 +1,5 @@
 import { ActivityIndicator, Alert, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { Tournament, TournamentStatus } from '@/lib/types/models';
-// app/(tabs)/tournaments.tsx - Actualizado para usar Provider Pattern
 import { useEffect, useState } from 'react';
 
 import { Colors } from '@/constants/Colors';
