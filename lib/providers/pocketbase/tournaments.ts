@@ -1,65 +1,79 @@
-import { ITournamentsProvider, TournamentFilters } from '../interfaces/ITournamentsProvider';
-import { Team, Tournament, TournamentStatus, TournamentType } from '@/lib/types/models';
+// lib/providers/pocketbase/tournaments.ts - CORREGIDO COMPLETO
+import {
+  ITournamentsProvider,
+  TournamentFilters
+} from '../interfaces/ITournamentsProvider';
+import {
+  Team,
+  Tournament,
+  TournamentStatus,
+  TournamentType
+} from '../../types/models';
 
 import PocketBase from 'pocketbase';
 
 export class PocketBaseTournamentsProvider implements ITournamentsProvider {
   constructor(private pb: PocketBase) {}
+  
+  // ✅ CRUD BÁSICO - Según ITournamentsProvider
 
   /**
    * Obtener todos los torneos con filtros opcionales
    */
   async getAll(filters?: TournamentFilters): Promise<{ data: Tournament[]; error: string | null }> {
     try {
-      // Construir filtros para PocketBase
+      let filter = '';
       const filterConditions: string[] = [];
-      
+
+      // ✅ FILTROS CORRECTOS - Solo los que existen en TournamentFilters
       if (filters?.status && filters.status.length > 0) {
-        const statusFilter = filters.status.map(s => `status = "${s}"`).join(' || ');
-        filterConditions.push(`(${statusFilter})`);
+        const statusFilters = filters.status.map(s => `status="${s}"`).join(' || ');
+        filterConditions.push(`(${statusFilters})`);
       }
-      
+
       if (filters?.type && filters.type.length > 0) {
-        const typeFilter = filters.type.map(t => `type = "${t}"`).join(' || ');
-        filterConditions.push(`(${typeFilter})`);
+        const typeFilters = filters.type.map(t => `type="${t}"`).join(' || ');
+        filterConditions.push(`(${typeFilters})`);
       }
-      
+
       if (filters?.search) {
         filterConditions.push(`name ~ "${filters.search}"`);
       }
-      
+
       if (filters?.date_from) {
         filterConditions.push(`start_date >= "${filters.date_from}"`);
       }
-      
+
       if (filters?.date_to) {
         filterConditions.push(`start_date <= "${filters.date_to}"`);
       }
 
-      const filterString = filterConditions.length > 0 
-        ? filterConditions.join(' && ') 
-        : '';
+      filter = filterConditions.join(' && ');
 
-      const records = await this.pb.collection('tournaments').getFullList<any>({
-        sort: '-start_date',
-        filter: filterString,
-        expand: 'created_by',
+      // ✅ ORDENAMIENTO CORRECTO - No usar sort_by que no existe
+      const sortField = '-created'; // Por defecto más recientes primero
+
+      const pocketbaseTournaments = await this.pb.collection('tournaments').getList(1, 50, {
+        filter,
+        sort: sortField,
+        expand: 'created_by'
       });
 
-      // Mapear datos de PocketBase a nuestro modelo Tournament
-      const tournaments: Tournament[] = records.map(record => ({
-        id: record.id,
-        name: record.name,
-        start_date: record.start_date || new Date().toISOString(),
-        end_date: record.end_date || null,
-        location: record.location || null,
-        description: record.description || null,
-        type: this.mapPocketBaseTournamentType(record.type),
-        status: this.mapPocketBaseTournamentStatus(record.status),
-        teams_to_qualify: record.teams_to_qualify || null,
-        created_at: record.created || new Date().toISOString(),
-        updated_at: record.updated || new Date().toISOString(),
-      }));
+      const tournaments: Tournament[] = pocketbaseTournaments.items.map((item: any) => {
+        return {
+          id: item.id,
+          name: item.name,
+          description: item.description || null,
+          start_date: item.start_date,
+          end_date: item.end_date || null,
+          location: item.location || null,
+          type: this.mapPocketBaseTournamentType(item.type),
+          status: this.mapPocketBaseTournamentStatus(item.status),
+          teams_to_qualify: item.teams_to_qualify || null,
+          created_at: item.created || new Date().toISOString(),
+          updated_at: item.updated || new Date().toISOString()
+        };
+      });
 
       return { data: tournaments, error: null };
     } catch (error: any) {
@@ -76,27 +90,27 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
    */
   async getById(id: string): Promise<{ data: Tournament | null; error: string | null }> {
     try {
-      const record = await this.pb.collection('tournaments').getOne<any>(id, {
-        expand: 'created_by',
+      const pocketbaseTournament = await this.pb.collection('tournaments').getOne(id, {
+        expand: 'created_by'
       });
-      
+
       const tournament: Tournament = {
-        id: record.id,
-        name: record.name,
-        start_date: record.start_date || new Date().toISOString(),
-        end_date: record.end_date || null,
-        location: record.location || null,
-        description: record.description || null,
-        type: this.mapPocketBaseTournamentType(record.type),
-        status: this.mapPocketBaseTournamentStatus(record.status),
-        teams_to_qualify: record.teams_to_qualify || null,
-        created_at: record.created || new Date().toISOString(),
-        updated_at: record.updated || new Date().toISOString(),
+        id: pocketbaseTournament.id,
+        name: pocketbaseTournament.name,
+        description: pocketbaseTournament.description || null,
+        start_date: pocketbaseTournament.start_date,
+        end_date: pocketbaseTournament.end_date || null,
+        location: pocketbaseTournament.location || null,
+        type: this.mapPocketBaseTournamentType(pocketbaseTournament.type),
+        status: this.mapPocketBaseTournamentStatus(pocketbaseTournament.status),
+        teams_to_qualify: pocketbaseTournament.teams_to_qualify || null,
+        created_at: pocketbaseTournament.created || new Date().toISOString(),
+        updated_at: pocketbaseTournament.updated || new Date().toISOString()
       };
 
       return { data: tournament, error: null };
     } catch (error: any) {
-      console.error('Error obteniendo torneo:', error);
+      console.error('Error obteniendo torneo por ID:', error);
       return { 
         data: null, 
         error: this.parsePocketBaseError(error) 
@@ -109,39 +123,32 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
    */
   async create(tournamentData: Omit<Tournament, 'id' | 'created_at' | 'updated_at'>): Promise<{ data: Tournament | null; error: string | null }> {
     try {
-      // Obtener usuario actual para created_by
-      const currentUser = this.pb.authStore.model;
-      if (!currentUser) {
-        throw new Error('Usuario no autenticado');
-      }
-
-      // Mapear datos a formato PocketBase
-      const createData: any = {
+      const pocketbaseData = {
         name: tournamentData.name,
+        description: tournamentData.description,
         start_date: tournamentData.start_date,
-        end_date: tournamentData.end_date || '',
-        location: tournamentData.location || '',
-        description: tournamentData.description || '',
-        type: this.mapToSupabaseTournamentType(tournamentData.type),
-        status: this.mapToSupabaseTournamentStatus(tournamentData.status),
-        teams_to_qualify: tournamentData.teams_to_qualify || 0,
-        created_by: currentUser.id,
+        end_date: tournamentData.end_date,
+        location: tournamentData.location,
+        type: this.mapTournamentTypeToString(tournamentData.type),
+        status: this.mapTournamentStatusToString(tournamentData.status),
+        teams_to_qualify: tournamentData.teams_to_qualify,
+        created_by: this.pb.authStore.model?.id
       };
 
-      const record = await this.pb.collection('tournaments').create<any>(createData);
-      
+      const pocketbaseTournament = await this.pb.collection('tournaments').create(pocketbaseData);
+
       const tournament: Tournament = {
-        id: record.id,
-        name: record.name,
-        start_date: record.start_date || new Date().toISOString(),
-        end_date: record.end_date || null,
-        location: record.location || null,
-        description: record.description || null,
-        type: this.mapPocketBaseTournamentType(record.type),
-        status: this.mapPocketBaseTournamentStatus(record.status),
-        teams_to_qualify: record.teams_to_qualify || null,
-        created_at: record.created || new Date().toISOString(),
-        updated_at: record.updated || new Date().toISOString(),
+        id: pocketbaseTournament.id,
+        name: pocketbaseTournament.name,
+        description: pocketbaseTournament.description || null,
+        start_date: pocketbaseTournament.start_date,
+        end_date: pocketbaseTournament.end_date || null,
+        location: pocketbaseTournament.location || null,
+        type: this.mapPocketBaseTournamentType(pocketbaseTournament.type),
+        status: this.mapPocketBaseTournamentStatus(pocketbaseTournament.status),
+        teams_to_qualify: pocketbaseTournament.teams_to_qualify || null,
+        created_at: pocketbaseTournament.created || new Date().toISOString(),
+        updated_at: pocketbaseTournament.updated || new Date().toISOString()
       };
 
       return { data: tournament, error: null };
@@ -159,55 +166,31 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
    */
   async update(id: string, tournamentData: Partial<Tournament>): Promise<{ data: Tournament | null; error: string | null }> {
     try {
-      // Mapear solo los campos que se pueden actualizar
-      const updateData: any = {};
-      
-      if (tournamentData.name !== undefined) {
-        updateData.name = tournamentData.name;
-      }
-      
-      if (tournamentData.start_date !== undefined) {
-        updateData.start_date = tournamentData.start_date;
-      }
-      
-      if (tournamentData.end_date !== undefined) {
-        updateData.end_date = tournamentData.end_date || '';
-      }
-      
-      if (tournamentData.location !== undefined) {
-        updateData.location = tournamentData.location || '';
-      }
-      
-      if (tournamentData.description !== undefined) {
-        updateData.description = tournamentData.description || '';
-      }
-      
-      if (tournamentData.type !== undefined) {
-        updateData.type = this.mapToSupabaseTournamentType(tournamentData.type);
-      }
-      
-      if (tournamentData.status !== undefined) {
-        updateData.status = this.mapToSupabaseTournamentStatus(tournamentData.status);
-      }
-      
-      if (tournamentData.teams_to_qualify !== undefined) {
-        updateData.teams_to_qualify = tournamentData.teams_to_qualify || 0;
-      }
+      const pocketbaseData: any = {};
 
-      const record = await this.pb.collection('tournaments').update<any>(id, updateData);
-      
+      if (tournamentData.name !== undefined) pocketbaseData.name = tournamentData.name;
+      if (tournamentData.description !== undefined) pocketbaseData.description = tournamentData.description;
+      if (tournamentData.start_date !== undefined) pocketbaseData.start_date = tournamentData.start_date;
+      if (tournamentData.end_date !== undefined) pocketbaseData.end_date = tournamentData.end_date;
+      if (tournamentData.location !== undefined) pocketbaseData.location = tournamentData.location;
+      if (tournamentData.type !== undefined) pocketbaseData.type = this.mapTournamentTypeToString(tournamentData.type);
+      if (tournamentData.status !== undefined) pocketbaseData.status = this.mapTournamentStatusToString(tournamentData.status);
+      if (tournamentData.teams_to_qualify !== undefined) pocketbaseData.teams_to_qualify = tournamentData.teams_to_qualify;
+
+      const pocketbaseTournament = await this.pb.collection('tournaments').update(id, pocketbaseData);
+
       const tournament: Tournament = {
-        id: record.id,
-        name: record.name,
-        start_date: record.start_date || new Date().toISOString(),
-        end_date: record.end_date || null,
-        location: record.location || null,
-        description: record.description || null,
-        type: this.mapPocketBaseTournamentType(record.type),
-        status: this.mapPocketBaseTournamentStatus(record.status),
-        teams_to_qualify: record.teams_to_qualify || null,
-        created_at: record.created || new Date().toISOString(),
-        updated_at: record.updated || new Date().toISOString(),
+        id: pocketbaseTournament.id,
+        name: pocketbaseTournament.name,
+        description: pocketbaseTournament.description || null,
+        start_date: pocketbaseTournament.start_date,
+        end_date: pocketbaseTournament.end_date || null,
+        location: pocketbaseTournament.location || null,
+        type: this.mapPocketBaseTournamentType(pocketbaseTournament.type),
+        status: this.mapPocketBaseTournamentStatus(pocketbaseTournament.status),
+        teams_to_qualify: pocketbaseTournament.teams_to_qualify || null,
+        created_at: pocketbaseTournament.created || new Date().toISOString(),
+        updated_at: pocketbaseTournament.updated || new Date().toISOString()
       };
 
       return { data: tournament, error: null };
@@ -229,24 +212,29 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
       return { error: null };
     } catch (error: any) {
       console.error('Error eliminando torneo:', error);
-      return { 
-        error: this.parsePocketBaseError(error) 
-      };
+      return { error: this.parsePocketBaseError(error) };
     }
   }
 
+  // ✅ FUNCIONES ESPECÍFICAS - Según ITournamentsProvider
+
   /**
-   * Buscar torneos por nombre
+   * Buscar torneos por query
    */
   async search(query: string): Promise<{ data: Tournament[]; error: string | null }> {
     return this.getAll({ search: query });
   }
 
   /**
-   * Obtener torneos por estado
+   * Obtener torneos por estado específico
    */
   async getByStatus(status: string): Promise<{ data: Tournament[]; error: string | null }> {
-    return this.getAll({ status: [status] });
+    // Validar que el status sea válido
+    if (!Object.values(TournamentStatus).includes(status as TournamentStatus)) {
+      return { data: [], error: `Estado de torneo inválido: ${status}` };
+    }
+    
+    return this.getAll({ status: [status as TournamentStatus] });
   }
 
   /**
@@ -276,14 +264,17 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
       const stats = {
         teams_count: teamsInTournament.length,
         matches_total: matches.length,
-        matches_completed: matches.filter(match => match.status === 'completed').length,
-        matches_pending: matches.filter(match => match.status === 'scheduled').length,
-        matches_in_progress: matches.filter(match => match.status === 'in_progress').length,
+        matches_completed: matches.filter((match: any) => match.status === 'completed').length,
+        matches_pending: matches.filter((match: any) => match.status === 'scheduled').length,
+        matches_in_progress: matches.filter((match: any) => match.status === 'in_progress').length,
         start_date: tournament.data.start_date,
         end_date: tournament.data.end_date,
         duration_days: tournament.data.end_date 
           ? Math.ceil((new Date(tournament.data.end_date).getTime() - new Date(tournament.data.start_date).getTime()) / (1000 * 60 * 60 * 24))
           : null,
+        completion_percentage: matches.length > 0 
+          ? Math.round((matches.filter((match: any) => match.status === 'completed').length / matches.length) * 100)
+          : 0
       };
 
       return { data: stats, error: null };
@@ -296,34 +287,24 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
     }
   }
 
+  // ✅ GESTIÓN DE EQUIPOS EN TORNEO - Según ITournamentsProvider
+
   /**
    * Agregar equipo al torneo
    */
   async addTeam(tournamentId: string, teamId: string): Promise<{ error: string | null }> {
     try {
-      // Verificar si el equipo ya está en el torneo
-      const existing = await this.pb.collection('tournament_teams').getFullList({
-        filter: `tournament = "${tournamentId}" && team = "${teamId}"`,
-      });
-
-      if (existing.length > 0) {
-        return { error: 'El equipo ya está inscrito en este torneo' };
-      }
-
-      // Agregar equipo al torneo
       await this.pb.collection('tournament_teams').create({
         tournament: tournamentId,
         team: teamId,
         points: 0,
-        rank: null,
+        rank: null
       });
 
       return { error: null };
     } catch (error: any) {
       console.error('Error agregando equipo al torneo:', error);
-      return { 
-        error: this.parsePocketBaseError(error) 
-      };
+      return { error: this.parsePocketBaseError(error) };
     }
   }
 
@@ -332,44 +313,45 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
    */
   async removeTeam(tournamentId: string, teamId: string): Promise<{ error: string | null }> {
     try {
-      // Buscar el registro del equipo en el torneo
-      const tournamentTeams = await this.pb.collection('tournament_teams').getFullList({
-        filter: `tournament = "${tournamentId}" && team = "${teamId}"`,
+      const records = await this.pb.collection('tournament_teams').getFullList({
+        filter: `tournament="${tournamentId}" && team="${teamId}"`
       });
 
-      if (tournamentTeams.length === 0) {
-        return { error: 'El equipo no está inscrito en este torneo' };
+      if (records.length > 0) {
+        await this.pb.collection('tournament_teams').delete(records[0].id);
       }
-
-      // Eliminar registro
-      await this.pb.collection('tournament_teams').delete(tournamentTeams[0].id);
 
       return { error: null };
     } catch (error: any) {
       console.error('Error removiendo equipo del torneo:', error);
-      return { 
-        error: this.parsePocketBaseError(error) 
-      };
+      return { error: this.parsePocketBaseError(error) };
     }
   }
 
   /**
    * Obtener equipos del torneo
+   * ✅ CORREGIDO - Incluye TODAS las propiedades requeridas por Team
    */
   async getTeams(tournamentId: string): Promise<{ data: Team[]; error: string | null }> {
     try {
       const tournamentTeams = await this.pb.collection('tournament_teams').getFullList({
-        filter: `tournament = "${tournamentId}"`,
+        filter: `tournament="${tournamentId}"`,
         expand: 'team',
-        sort: 'rank,points',
+        sort: '-points'
       });
 
-      const teams: Team[] = tournamentTeams.map(tt => {
-        const teamRecord = tt.expand?.team;
+      const teams: Team[] = tournamentTeams.map((item: any) => {
+        const teamRecord = item.expand?.team;
+        if (!teamRecord) {
+          throw new Error(`Team data not found for tournament team ${item.id}`);
+        }
+
         return {
           id: teamRecord.id,
           name: teamRecord.name,
-          logo_url: teamRecord.logo ? this.pb.files.getUrl(teamRecord, teamRecord.logo) : null,
+          active: teamRecord.active ?? true, // ✅ PROPIEDAD AGREGADA
+          logo_url: teamRecord.logo ? 
+            this.pb.files.getUrl(teamRecord, teamRecord.logo) : null,
           coach_name: teamRecord.coach_name || null,
           contact_email: teamRecord.contact_email || null,
           contact_phone: teamRecord.contact_phone || null,
@@ -425,7 +407,7 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
   /**
    * Mapear nuestros tipos de torneo a formato PocketBase
    */
-  private mapToSupabaseTournamentType(type: TournamentType): string {
+  private mapTournamentTypeToString(type: TournamentType): string {
     switch (type) {
       case TournamentType.POINTS:
         return 'points';
@@ -441,7 +423,7 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
   /**
    * Mapear nuestros estados de torneo a formato PocketBase
    */
-  private mapToSupabaseTournamentStatus(status: TournamentStatus): string {
+  private mapTournamentStatusToString(status: TournamentStatus): string {
     switch (status) {
       case TournamentStatus.UPCOMING:
         return 'upcoming';
