@@ -1,12 +1,9 @@
-// lib/config/constants.ts - CORRECCIÓN MÍNIMA ESPECÍFICA
 import Constants from 'expo-constants';
 
-// Función helper para obtener variables de entorno
 const getEnvVar = (key: string, defaultValue?: any) => {
   return Constants.expoConfig?.extra?.[key] ?? defaultValue;
 };
 
-// ⭐ CONFIGURACIÓN PRINCIPAL DE BACKEND - Estructura corregida
 const BACKEND_CONFIG = {
   PROVIDER: getEnvVar('backendProvider', 'pocketbase') as 'pocketbase' | 'supabase' | 'firebase',
   get IS_POCKETBASE() {
@@ -20,7 +17,6 @@ const BACKEND_CONFIG = {
   },
 } as const;
 
-// 🗄️ CONFIGURACIÓN DE POCKETBASE - Sin cambios
 const POCKETBASE_CONFIG = {
   URL: getEnvVar('pocketbaseUrl', 'https://back-volley.kronnos.dev'),
   HEALTH_ENDPOINT: getEnvVar('pocketbaseHealthEndpoint', '/health'),
@@ -71,7 +67,6 @@ const APP_CONFIG = {
   },
 } as const;
 
-// 🌐 CONFIGURACIÓN DE API - Sin cambios
 const API_CONFIG = {
   TIMEOUT: getEnvVar('apiTimeout', 10000),
   MAX_RETRIES: getEnvVar('maxRetries', 3),
@@ -82,7 +77,6 @@ const API_CONFIG = {
   }
 } as const;
 
-// 💾 CONFIGURACIÓN DE CACHE - Sin cambios
 const CACHE_CONFIG = {
   TTL: getEnvVar('cacheTtl', 300000), // 5 minutos
   AUTH_TOKEN_KEY: getEnvVar('authTokenKey', 'auth_token'),
@@ -96,7 +90,6 @@ const CACHE_CONFIG = {
   }
 } as const;
 
-// 📁 CONFIGURACIÓN DE UPLOADS - Sin cambios
 const UPLOAD_CONFIG = {
   MAX_FILE_SIZE: getEnvVar('maxFileSize', 2097152), // 2MB
   ALLOWED_IMAGE_TYPES: getEnvVar('allowedImageTypes', ['image/jpeg', 'image/png', 'image/webp']),
@@ -129,7 +122,6 @@ const VOLLEYBALL_CONFIG = {
   }
 } as const;
 
-// 🔔 CONFIGURACIÓN DE NOTIFICACIONES - Sin cambios
 const NOTIFICATION_CONFIG = {
   ENABLED: getEnvVar('notificationsEnabled', true),
   MATCH_REMINDER_HOURS: getEnvVar('matchReminderHours', 2),
@@ -137,7 +129,6 @@ const NOTIFICATION_CONFIG = {
   TOURNAMENT_UPDATES_ENABLED: getEnvVar('tournamentUpdatesEnabled', true),
 } as const;
 
-// 🎨 CONFIGURACIÓN DE UI - Sin cambios
 const UI_CONFIG = {
   ANIMATION_DURATION: getEnvVar('animationDuration', 300),
   REFRESH_THRESHOLD: getEnvVar('refreshThreshold', 80),
@@ -160,7 +151,6 @@ const SECURITY_CONFIG = {
   }
 } as const;
 
-// 🔧 CAMBIO CRÍTICO: Estructura unificada para que coincida con lib/providers/index.ts
 export const CONFIG = {
   BACKEND: BACKEND_CONFIG,        // ✅ Ahora CONFIG.BACKEND.PROVIDER funciona
   POCKETBASE: POCKETBASE_CONFIG,
@@ -176,19 +166,15 @@ export const CONFIG = {
   SECURITY: SECURITY_CONFIG,
 } as const;
 
-// ✅ EXPORTS DIRECTOS (sin re-declarar)
 export { BACKEND_CONFIG, POCKETBASE_CONFIG, SUPABASE_CONFIG, FIREBASE_CONFIG, APP_CONFIG, API_CONFIG, CACHE_CONFIG, UPLOAD_CONFIG, VOLLEYBALL_CONFIG, NOTIFICATION_CONFIG, UI_CONFIG, SECURITY_CONFIG };
 
-// 🔍 VALIDACIÓN DE CONFIGURACIÓN - Sin cambios
 export const validateConfig = (): { valid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
-  // Validar backend principal
   if (!CONFIG.BACKEND.PROVIDER) {
     errors.push('BACKEND_PROVIDER no está configurado');
   }
 
-  // Validar configuración específica del backend activo
   switch (CONFIG.BACKEND.PROVIDER) {
     case 'pocketbase':
       if (!CONFIG.POCKETBASE.IS_CONFIGURED) {
@@ -207,7 +193,6 @@ export const validateConfig = (): { valid: boolean; errors: string[] } => {
       break;
   }
 
-  // Validar configuraciones críticas
   if (CONFIG.API.TIMEOUT < 1000) {
     errors.push('API timeout debe ser al menos 1000ms');
   }
@@ -222,7 +207,6 @@ export const validateConfig = (): { valid: boolean; errors: string[] } => {
   };
 };
 
-// 🎯 HELPERS DE CONFIGURACIÓN - Actualizados para usar CONFIG
 export const getBackendConfig = () => {
   switch (CONFIG.BACKEND.PROVIDER) {
     case 'pocketbase':
@@ -241,7 +225,6 @@ export const isBackendConfigured = (): boolean => {
   return (backendConfig as any).IS_CONFIGURED ?? false;
 };
 
-// 🚀 INFORMACIÓN DE CONFIGURACIÓN - Actualizada
 export const getConfigInfo = () => {
   const validation = validateConfig();
   
@@ -261,7 +244,6 @@ export const getConfigInfo = () => {
   };
 };
 
-// 📝 LOGGING EN DESARROLLO - Sin cambios
 if (__DEV__) {
   const configInfo = getConfigInfo();
   console.log('🔧 App Configuration:', configInfo);

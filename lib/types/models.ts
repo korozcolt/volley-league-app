@@ -1,6 +1,3 @@
-// lib/types/models.ts - Modelos actualizados con coherencia completa
-
-// 🎯 ENUMS PRINCIPALES
 export enum TournamentType {
     POINTS = 'points',
     ELIMINATION = 'elimination', 
@@ -19,29 +16,27 @@ export enum MatchStatus {
     COMPLETED = 'completed',
     CANCELLED = 'cancelled',
     POSTPONED = 'postponed',
-    TBA = 'to_be_announced', // Para partidos que aún no tienen fecha definida
-    TBC = 'to_be_confirmed', // Para partidos que necesitan confirmación de equipos
-    TIEBREAKER = 'tiebreaker', // Para partidos de desempate
+    TBA = 'to_be_announced',
+    TBC = 'to_be_confirmed',
+    TIEBREAKER = 'tiebreaker',
 }
 
 export enum UserRole {
     ADMIN = 'admin',
-    REFEREE = 'referee',     // ✅ AGREGADO - Para árbitros
-    COACH = 'coach',         // ✅ AGREGADO - Para entrenadores
-    PLAYER = 'player',       // ✅ AGREGADO - Para jugadores
+    REFEREE = 'referee', 
+    COACH = 'coach', 
+    PLAYER = 'player',
     VIEWER = 'viewer',
 }
 
-// ✅ ACTUALIZADO - PlayerPosition como enum para mayor consistencia
 export enum PlayerPosition {
-    SETTER = 'setter',              // Colocador
-    OPPOSITE = 'opposite',          // Opuesto
-    MIDDLE_BLOCKER = 'middle_blocker', // Central
-    LIBERO = 'libero',             // Líbero
-    OUTSIDE_HITTER = 'outside_hitter', // Receptor/Punta
+    SETTER = 'setter',
+    OPPOSITE = 'opposite',
+    MIDDLE_BLOCKER = 'middle_blocker',
+    LIBERO = 'libero',
+    OUTSIDE_HITTER = 'outside_hitter',
 }
 
-// ✅ NUEVO - Enum para tipos de eventos en partidos
 export enum MatchEventType {
     POINT = 'point',
     TIMEOUT = 'timeout',
@@ -53,14 +48,10 @@ export enum MatchEventType {
     MATCH_END = 'match_end',
 }
 
-// ✅ NUEVO - Enum para tipos de tarjetas
 export enum CardType {
     YELLOW = 'yellow',
     RED = 'red',
 }
-
-// 📊 INTERFACES PRINCIPALES
-
 export interface User {
     id: string;
     email: string;
@@ -73,7 +64,7 @@ export interface User {
 export interface Team {
     id: string;
     name: string;
-    active: boolean;                    // ✅ AGREGADO - Propiedad faltante crítica
+    active: boolean;
     logo_url?: string | null;
     coach_name?: string | null;
     contact_email?: string | null;
@@ -82,25 +73,23 @@ export interface Team {
     updated_at: string;
 }
 
-// ✅ ACTUALIZADO - Player con nombres corregidos y campos adicionales
 export interface Player {
     id: string;
     team_id: string;
-    user_id?: string | null;        // ✅ AGREGADO - Relación con usuario
-    full_name: string;              // ✅ CORREGIDO - Era first_name + last_name
-    jersey_number: number;          // ✅ CORREGIDO - Ya no es opcional
+    user_id?: string | null;
+    full_name: string;
+    jersey_number: number;
     position?: PlayerPosition | null;
-    birth_date?: string | null;     // ✅ CORREGIDO - Era date_of_birth
-    height?: number | null;         // en centímetros
+    birth_date?: string | null;
+    height?: number | null;
     photo_url?: string | null;
     active: boolean;
-    captain: boolean;               // ✅ AGREGADO - Para capitanes
+    captain: boolean;
     created_at: string;
     updated_at: string;
 
-    // Propiedades para relaciones
     team?: Team;
-    user?: User;                    // ✅ AGREGADO
+    user?: User; 
 }
 
 export interface Tournament {
@@ -112,7 +101,7 @@ export interface Tournament {
     description?: string | null;
     type: TournamentType;
     status: TournamentStatus;
-    teams_to_qualify?: number | null; // Solo para torneos mixtos
+    teams_to_qualify?: number | null;
     created_at: string;
     updated_at: string;
 }
@@ -126,22 +115,20 @@ export interface TournamentTeam {
     created_at: string;
     updated_at: string;
 
-    // Propiedades para relaciones
     tournament?: Tournament;
     team?: Team;
 }
 
-// ✅ ACTUALIZADO - Match con campos corregidos
 export interface Match {
     id: string;
     tournament_id: string;
     home_team_id?: string | null;
     away_team_id?: string | null;
-    home_score: number;             // ✅ CORREGIDO - Era home_team_score
-    away_score: number;             // ✅ CORREGIDO - Era away_team_score
+    home_score: number;
+    away_score: number;
     sets_home: number;
     sets_away: number;
-    match_date: string;             // ✅ CORREGIDO - Ya no es opcional en la práctica
+    match_date: string;
     location?: string | null;
     status: MatchStatus;
     round?: string | null;
@@ -150,7 +137,6 @@ export interface Match {
     created_at: string;
     updated_at: string;
 
-    // Propiedades para relaciones
     tournament?: Tournament;
     home_team?: Team;
     away_team?: Team;
@@ -168,7 +154,6 @@ export interface MatchSet {
     created_at: string;
     updated_at: string;
 
-    // Propiedades para relaciones
     match?: Match;
 }
 
@@ -182,12 +167,11 @@ export interface MatchEvent {
     points_home: number;
     points_away: number;
     timestamp: string;
-    details?: any | null;           // JSON para detalles específicos del evento
-    recorded_by: string;            // ID del usuario que registró el evento
+    details?: any | null;
+    recorded_by: string;
     created_at: string;
     updated_at: string;
 
-    // Propiedades para relaciones
     match?: Match;
     team?: Team;
     player?: Player;
@@ -197,13 +181,12 @@ export interface MatchEvent {
 export interface MatchOfficial {
     id: string;
     match_id: string;
-    main_referee?: string | null;       // ID del árbitro principal
-    assistant_referee?: string | null;  // ID del árbitro asistente
-    scorer?: string | null;             // ID del anotador
+    main_referee?: string | null;
+    assistant_referee?: string | null;
+    scorer?: string | null;
     created_at: string;
     updated_at: string;
 
-    // Propiedades para relaciones
     match?: Match;
     main_referee_user?: User;
     assistant_referee_user?: User;
@@ -226,7 +209,6 @@ export interface TeamLineup {
     created_at: string;
     updated_at: string;
 
-    // Propiedades para relaciones
     match?: Match;
     team?: Team;
     player_1?: Player;
@@ -250,16 +232,15 @@ export interface PlayerMatchStats {
     aces: number;
     service_errors: number;
     attack_errors: number;
-    attacks_total: number;          // ✅ AGREGADO
-    attacks_successful: number;     // ✅ AGREGADO
-    receptions_total: number;       // ✅ AGREGADO
-    receptions_perfect: number;     // ✅ AGREGADO
-    sets_played: number;            // ✅ AGREGADO
-    minutes_played: number;         // ✅ AGREGADO
+    attacks_total: number;      
+    attacks_successful: number; 
+    receptions_total: number;   
+    receptions_perfect: number; 
+    sets_played: number;        
+    minutes_played: number;     
     created_at: string;
     updated_at: string;
 
-    // Propiedades para relaciones
     match?: Match;
     player?: Player;
 }
@@ -267,20 +248,18 @@ export interface PlayerMatchStats {
 export interface Bracket {
     id: string;
     tournament_id: string;
-    stage: string; // octavos, cuartos, semifinal, final
+    stage: string;
     match_id: string;
     next_bracket_id?: string | null;
-    position: number;               // ✅ AGREGADO - Posición en el bracket
+    position: number;
     created_at: string;
     updated_at: string;
 
-    // Propiedades para relaciones
     tournament?: Tournament;
     match?: Match;
     next_bracket?: Bracket;
 }
 
-// ✅ NUEVO - Para notificaciones del sistema
 export interface Notification {
     id: string;
     user_id: string;
@@ -292,11 +271,9 @@ export interface Notification {
     created_at: string;
     updated_at: string;
 
-    // Propiedades para relaciones
     user?: User;
 }
 
-// ✅ NUEVO - Para configuración del sistema
 export interface SystemConfig {
     id: string;
     key: string;
@@ -307,9 +284,6 @@ export interface SystemConfig {
     updated_at: string;
 }
 
-// 🎯 TIPOS AUXILIARES
-
-// Para filtros en las consultas
 export interface BaseFilters {
     search?: string;
     limit?: number;
@@ -350,7 +324,6 @@ export interface PlayerFilters {
     search?: string;
 }
 
-// Para respuestas de la API
 export interface ApiResponse<T> {
     data: T;
     error: string | null;
@@ -411,29 +384,21 @@ export interface TournamentStats {
 }
 
 export interface MatchEventDetails {
-    // Para eventos de punto
     point_type?: 'attack' | 'block' | 'serve' | 'opponent_error';
     attack_zone?: string;
     block_type?: 'single' | 'double' | 'triple';
     
-    // Para sustituciones
     player_in?: string;
     player_out?: string;
     
-    // Para tarjetas
     card_type?: CardType;
     reason?: string;
     
-    // Para timeouts
     timeout_type?: 'technical' | 'team';
     
-    // Información adicional
     notes?: string;
 }
 
-// 🎨 TIPOS DE UTILIDAD
-
-// Para formularios
 export type CreateTeamData = Omit<Team, 'id' | 'created_at' | 'updated_at'>;
 export type UpdateTeamData = Partial<CreateTeamData>;
 
@@ -446,13 +411,9 @@ export type UpdateTournamentData = Partial<CreateTournamentData>;
 export type CreateMatchData = Omit<Match, 'id' | 'created_at' | 'updated_at'>;
 export type UpdateMatchData = Partial<CreateMatchData>;
 
-// Para providers
 export type ProviderResponse<T> = Promise<ApiResponse<T>>;
 export type ProviderListResponse<T> = Promise<ApiResponse<T[]>>;
 
-// ✅ VALIDACIONES DE CONSISTENCIA
-
-// Función para validar que los enums coincidan con strings
 export const validateEnumValue = <T extends Record<string, string>>(
     enumObject: T,
     value: string
@@ -460,7 +421,6 @@ export const validateEnumValue = <T extends Record<string, string>>(
     return Object.values(enumObject).includes(value as T[keyof T]);
 };
 
-// Mappers para conversión entre formatos
 export const mapStringToTournamentType = (value: string): TournamentType | null => {
     return validateEnumValue(TournamentType, value) ? value as TournamentType : null;
 };
@@ -480,8 +440,6 @@ export const mapStringToPlayerPosition = (value: string): PlayerPosition | null 
 export const mapStringToUserRole = (value: string): UserRole | null => {
     return validateEnumValue(UserRole, value) ? value as UserRole : null;
 };
-
-// 🔍 HELPERS DE TIPOS
 
 export const isValidEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -508,8 +466,6 @@ export const isTournamentActive = (tournament: Tournament): boolean => {
     return tournament.status === TournamentStatus.IN_PROGRESS || 
            tournament.status === TournamentStatus.UPCOMING;
 };
-
-// 📊 CONSTANTES RELACIONADAS CON VOLEIBOL
 
 export const VOLLEYBALL_CONSTANTS = {
     MAX_SETS: 5,
