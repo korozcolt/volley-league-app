@@ -1,386 +1,323 @@
+// app/(tabs)/index.tsx - Dashboard migrado a providers
 import { Alert, FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
-import { Match, MatchStatus, Tournament, TournamentStatus } from '@/lib/types/models';
+import { Match, Team, Tournament } from '@/lib/types/models';
 import { useEffect, useState } from 'react';
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { router } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { useAuthContext } from '@/lib/context/AuthContext';
+import { useActiveTeams } from '@/lib/hooks/useTeams';
+import { useActiveTournaments } from '@/lib/hooks/useTournaments';
+// 🎯 IMPORTS AGNÓSTICOS - No más Supabase directo
+import { useAuth } from '@/lib/hooks/useAuth';
 import { useColorScheme } from '@/hooks/useColorScheme';
-
-// Con NativeWind v4, usamos directamente className sin styled
-
-type MatchWithTeams = Match & {
-  home_team: {
-    id: string;
-    name: string;
-    logo_url?: string | null;
-  };
-  away_team: {
-    id: string;
-    name: string;
-    logo_url?: string | null;
-  };
-  tournament: {
-    id: string;
-    name: string;
-  };
-};
+import { useUpcomingMatches } from '@/lib/hooks/useMatches';
 
 export default function HomeScreen() {
-  const [upcomingMatches, setUpcomingMatches] = useState<MatchWithTeams[]>([]);
-  const [activeTournaments, setActiveTournaments] = useState<Tournament[]>([]);
-  const [teamsCount, setTeamsCount] = useState(0);
-  const [matchesCount, setMatchesCount] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const colorScheme = useColorScheme() as 'light' | 'dark';
-  const { userDetails, isAdmin } = useAuthContext();
+  // 🔄 HOOKS AGNÓSTICOS
+  const { userDetails, isAdmin } = useAuth();
+  const { upcomingMatches, loading: matchesLoading, refresh: refreshMatches } = useUpcomingMatches(5);
+  const { tournaments: activeTournaments, loading: tournamentsLoading, refresh: refreshTournaments } = useActiveTournaments();
+  const { teams: activeTeams, loading: teamsLoading, refresh: refreshTeams } = useActiveTeams();
   
-  // Determinar el color de fondo basado en el tema
+  const colorScheme = useColorScheme() as 'light' | 'dark';
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Determinar colores basado en el tema
   const bgColor = colorScheme === 'dark' ? 'bg-gray-900' : 'bg-gray-50';
   const cardBgColor = colorScheme === 'dark' ? 'bg-gray-800' : 'bg-white';
   const textColor = colorScheme === 'dark' ? 'text-white' : 'text-gray-900';
   const textSecondaryColor = colorScheme === 'dark' ? 'text-gray-300' : 'text-gray-600';
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      await Promise.all([
-        fetchUpcomingMatches(),
-        fetchActiveTournaments(),
-        fetchTeamsCount(),
-        fetchMatchesCount()
-      ]);
-    } catch (error) {
-      console.error('Error al cargar los datos del dashboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // 🔄 REFRESH GLOBAL
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadDashboardData();
-    setRefreshing(false);
-  };
-
-  const fetchUpcomingMatches = async () => {
     try {
-      const today = new Date();
-      const { data, error } = await supabase
-        .from('matches')
-        .select(`
-          *,
-          home_team:home_team_id(id, name, logo_url),
-          away_team:away_team_id(id, name, logo_url),
-          tournament:tournament_id(id, name)
-        `)
-        .or(`status.eq.${MatchStatus.SCHEDULED},status.eq.${MatchStatus.IN_PROGRESS}`)
-        .gte('match_date', today.toISOString())
-        .order('match_date', { ascending: true })
-        .limit(5);
-
-      if (error) throw error;
-      setUpcomingMatches(data as unknown as MatchWithTeams[]);
+      await Promise.all([
+        refreshMatches(),
+        refreshTournaments(),
+        refreshTeams()
+      ]);
     } catch (error) {
-      console.error('Error al cargar los próximos partidos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los próximos partidos');
+      console.error('Error refreshing dashboard:', error);
+      Alert.alert('Error', 'Error actualizando datos');
+    } finally {
+      setRefreshing(false);
     }
   };
 
-  const fetchActiveTournaments = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('tournaments')
-        .select('*')
-        .or(`status.eq.${TournamentStatus.UPCOMING},status.eq.${TournamentStatus.IN_PROGRESS}`)
-        .order('start_date', { ascending: true })
-        .limit(3);
-
-      if (error) throw error;
-      setActiveTournaments(data as Tournament[]);
-    } catch (error) {
-      console.error('Error al cargar los torneos activos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los torneos activos');
-    }
+  // 📊 ESTADÍSTICAS RÁPIDAS
+  const quickStats = {
+    activeTournaments: activeTournaments.length,
+    activeTeams: activeTeams.length,
+    upcomingMatches: upcomingMatches.length,
+    completedMatches: 0 // Se puede agregar con un hook específico
   };
 
-  const fetchTeamsCount = async () => {
-    try {
-      const { count, error } = await supabase
-        .from('teams')
-        .select('*', { count: 'exact', head: true });
-
-      if (error) throw error;
-      setTeamsCount(count || 0);
-    } catch (error) {
-      console.error('Error al cargar el conteo de equipos:', error);
-    }
-  };
-
-  const fetchMatchesCount = async () => {
-    try {
-      const { count, error } = await supabase
-        .from('matches')
-        .select('*', { count: 'exact', head: true });
-
-      if (error) throw error;
-      setMatchesCount(count || 0);
-    } catch (error) {
-      console.error('Error al cargar el conteo de partidos:', error);
-    }
-  };
-
-  const navigateToMatchDetails = (matchId: string) => {
-    router.push(`/match/${matchId}`);
-  };
-
-  const navigateToTournamentDetails = (tournamentId: string) => {
-    router.push(`/tournament/${tournamentId}`);
-  };
-
-  const formatMatchDate = (dateString: string | null) => {
-    if (!dateString) return 'Fecha por confirmar';
-    
-    const date = new Date(dateString);
-    return `${date.toLocaleDateString()} - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  };
-
-  const formatTournamentDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const getStatusColor = (status: TournamentStatus) => {
-    return status === TournamentStatus.UPCOMING ? 'bg-green-600' : 'bg-blue-600';
-  };
-
-  const renderMatchItem = ({ item }: { item: MatchWithTeams }) => {
-    return (
-      <TouchableOpacity 
-        className={`${cardBgColor} rounded-lg p-4 mb-4 shadow-sm`}
-        onPress={() => navigateToMatchDetails(item.id)}
-      >
-        <View className="flex-row justify-between mb-3">
-          <Text className={`${textColor} font-semibold`}>
-            {item.tournament?.name || 'Torneo'}
+  const renderQuickStats = () => (
+    <View className="mb-6">
+      <Text className={`text-xl font-bold mb-4 ${textColor}`}>
+        Resumen
+      </Text>
+      <View className="flex-row justify-between">
+        <View className={`${cardBgColor} rounded-lg p-4 flex-1 mr-2 shadow-sm`}>
+          <Text className={`text-2xl font-bold ${textColor}`}>
+            {quickStats.activeTournaments}
           </Text>
-          <Text className={`${textSecondaryColor} text-sm`}>
-            {formatMatchDate(item.match_date || null)}
+          <Text className={`text-sm ${textSecondaryColor}`}>
+            Torneos Activos
           </Text>
         </View>
-
-        <View className="flex-row justify-between items-center mb-3">
-          <View className="flex-1 items-center">
-            {item.home_team?.logo_url ? (
-              <Image 
-                source={{ uri: item.home_team.logo_url }} 
-                className="w-12 h-12 rounded-full mb-2" 
-                resizeMode="contain"
-              />
-            ) : (
-              <View className="w-12 h-12 rounded-full bg-blue-500 items-center justify-center mb-2">
-                <Text className="text-white text-lg font-bold">
-                  {item.home_team?.name.charAt(0) || 'H'}
-                </Text>
-              </View>
-            )}
-            <Text className={`${textColor} text-center`} numberOfLines={1}>
-              {item.home_team?.name || 'Local'}
-            </Text>
-          </View>
-
-          <View className="flex-1 items-center">
-            <Text className={`${textColor} font-bold text-base`}>VS</Text>
-          </View>
-
-          <View className="flex-1 items-center">
-            {item.away_team?.logo_url ? (
-              <Image 
-                source={{ uri: item.away_team.logo_url }} 
-                className="w-12 h-12 rounded-full mb-2" 
-                resizeMode="contain"
-              />
-            ) : (
-              <View className="w-12 h-12 rounded-full bg-blue-500 items-center justify-center mb-2">
-                <Text className="text-white text-lg font-bold">
-                  {item.away_team?.name.charAt(0) || 'V'}
-                </Text>
-              </View>
-            )}
-            <Text className={`${textColor} text-center`} numberOfLines={1}>
-              {item.away_team?.name || 'Visitante'}
-            </Text>
-          </View>
-        </View>
-
-        {item.location && (
-          <View className="flex-row items-center">
-            <Ionicons 
-              name="location-outline" 
-              size={16} 
-              color={colorScheme === 'dark' ? '#fff' : '#000'} 
-            />
-            <Text className={`${textSecondaryColor} text-sm ml-1`}>
-              {item.location}
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  const renderTournamentItem = ({ item }: { item: Tournament }) => {
-    return (
-      <TouchableOpacity
-        className={`${cardBgColor} rounded-lg p-4 mb-4 shadow-sm`}
-        onPress={() => navigateToTournamentDetails(item.id)}
-      >
-        <View className="flex-row justify-between items-center mb-3">
-          <Text className={`${textColor} font-semibold flex-1`}>
-            {item.name}
+        <View className={`${cardBgColor} rounded-lg p-4 flex-1 mx-1 shadow-sm`}>
+          <Text className={`text-2xl font-bold ${textColor}`}>
+            {quickStats.activeTeams}
           </Text>
-          <View
-            className={`${getStatusColor(item.status)} px-2 py-1 rounded`}
-          >
-            <Text className="text-white text-xs font-bold">
-              {item.status === TournamentStatus.UPCOMING ? 'Próximo' : 'En curso'}
-            </Text>
-          </View>
+          <Text className={`text-sm ${textSecondaryColor}`}>
+            Equipos Activos
+          </Text>
         </View>
-
-        <View className="flex-row mb-3">
-          <View className="flex-row mr-4">
-            <Text className={`${textColor} font-bold mr-1`}>Inicio:</Text>
-            <Text className={textSecondaryColor}>
-              {formatTournamentDate(item.start_date)}
-            </Text>
-          </View>
-          {item.end_date && (
-            <View className="flex-row">
-              <Text className={`${textColor} font-bold mr-1`}>Fin:</Text>
-              <Text className={textSecondaryColor}>
-                {formatTournamentDate(item.end_date)}
-              </Text>
-            </View>
-          )}
+        <View className={`${cardBgColor} rounded-lg p-4 flex-1 ml-2 shadow-sm`}>
+          <Text className={`text-2xl font-bold ${textColor}`}>
+            {quickStats.upcomingMatches}
+          </Text>
+          <Text className={`text-sm ${textSecondaryColor}`}>
+            Próximos Partidos
+          </Text>
         </View>
-
-        {item.location && (
-          <View className="flex-row items-center">
-            <Ionicons 
-              name="location-outline" 
-              size={16} 
-              color={colorScheme === 'dark' ? '#fff' : '#000'} 
-            />
-            <Text className={`${textSecondaryColor} text-sm ml-1`}>
-              {item.location}
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  const StatCard = ({ icon, title, value }: { icon: string, title: string, value: number | string }) => (
-    <View className={`${cardBgColor} rounded-lg p-4 mx-1 flex-1 items-center shadow-sm`}>
-      <Ionicons name={icon as any} size={24} color="#4a90e2" />
-      <Text className={`${textColor} text-lg font-bold my-2`}>{value}</Text>
-      <Text className={textSecondaryColor}>{title}</Text>
+      </View>
     </View>
   );
 
+  const renderUpcomingMatch = ({ item: match }: { item: Match }) => {
+    const matchDate = new Date(match.match_date);
+    const isToday = matchDate.toDateString() === new Date().toDateString();
+    
+    return (
+      <TouchableOpacity
+        className={`${cardBgColor} rounded-lg p-4 mb-3 shadow-sm`}
+        onPress={() => router.push(`/match/${match.id}`)}
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className={`font-semibold ${textColor}`}>
+                {match.home_team?.name || 'Equipo Local'} vs {match.away_team?.name || 'Equipo Visitante'}
+              </Text>
+              <View className={`px-2 py-1 rounded ${isToday ? 'bg-red-100' : 'bg-blue-100'}`}>
+                <Text className={`text-xs font-medium ${isToday ? 'text-red-800' : 'text-blue-800'}`}>
+                  {isToday ? 'HOY' : matchDate.toLocaleDateString()}
+                </Text>
+              </View>
+            </View>
+            
+            <View className="flex-row items-center">
+              <Ionicons 
+                name="time-outline" 
+                size={14} 
+                color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} 
+              />
+              <Text className={`text-sm ml-1 ${textSecondaryColor}`}>
+                {matchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+              {match.location && (
+                <>
+                  <Ionicons 
+                    name="location-outline" 
+                    size={14} 
+                    color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} 
+                    className="ml-4"
+                  />
+                  <Text className={`text-sm ml-1 ${textSecondaryColor}`}>
+                    {match.location}
+                  </Text>
+                </>
+              )}
+            </View>
+            
+            {match.tournament && (
+              <Text className={`text-xs mt-1 ${textSecondaryColor}`}>
+                {match.tournament.name}
+              </Text>
+            )}
+          </View>
+          
+          <Ionicons 
+            name="chevron-forward" 
+            size={20} 
+            color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} 
+          />
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderActiveTournament = ({ item: tournament }: { item: Tournament }) => (
+    <TouchableOpacity
+      className={`${cardBgColor} rounded-lg p-4 mb-3 shadow-sm`}
+      onPress={() => router.push(`/tournament/${tournament.id}`)}
+    >
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1">
+          <Text className={`font-semibold ${textColor} mb-1`}>
+            {tournament.name}
+          </Text>
+          <Text className={`text-sm ${textSecondaryColor} mb-2`}>
+            {tournament.description || 'Sin descripción'}
+          </Text>
+          <View className="flex-row items-center">
+            <View className={`px-2 py-1 rounded ${
+              tournament.status === 'in_progress' ? 'bg-green-100' : 'bg-blue-100'
+            }`}>
+              <Text className={`text-xs font-medium ${
+                tournament.status === 'in_progress' ? 'text-green-800' : 'text-blue-800'
+              }`}>
+                {tournament.status === 'in_progress' ? 'En Progreso' : 'Próximamente'}
+              </Text>
+            </View>
+            <Text className={`text-xs ml-2 ${textSecondaryColor}`}>
+              {tournament.type === 'elimination' ? 'Eliminación' : 'Por Puntos'}
+            </Text>
+          </View>
+        </View>
+        <Ionicons 
+          name="chevron-forward" 
+          size={20} 
+          color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} 
+        />
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
-    <View className={`${bgColor} flex-1`}>
+    <View className={`flex-1 ${bgColor}`}>
       <FlatList
-        data={[]} // Solo usamos FlatList por su capacidad de hacer scroll y refresh
-        renderItem={null}
-        keyExtractor={() => 'dummy-key'}
+        className="px-4 pt-4"
+        data={[]}
+        renderItem={() => null}
+        ListHeaderComponent={() => (
+          <>
+            {/* 👋 SALUDO PERSONALIZADO */}
+            <View className="mb-6">
+              <Text className={`text-2xl font-bold ${textColor}`}>
+                ¡Hola, {userDetails?.full_name || 'Usuario'}!
+              </Text>
+              <Text className={`text-base ${textSecondaryColor}`}>
+                Bienvenido a Volley League
+              </Text>
+            </View>
+
+            {/* 📊 ESTADÍSTICAS RÁPIDAS */}
+            {renderQuickStats()}
+
+            {/* 🏐 PRÓXIMOS PARTIDOS */}
+            <View className="mb-6">
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className={`text-xl font-bold ${textColor}`}>
+                  Próximos Partidos
+                </Text>
+                <TouchableOpacity onPress={() => router.push('/matches')}>
+                  <Text className="text-blue-600 font-medium">Ver todos</Text>
+                </TouchableOpacity>
+              </View>
+              
+              {matchesLoading ? (
+                <View className={`${cardBgColor} rounded-lg p-6 items-center shadow-sm`}>
+                  <Text className={textSecondaryColor}>Cargando partidos...</Text>
+                </View>
+              ) : upcomingMatches.length > 0 ? (
+                upcomingMatches.slice(0, 3).map((match) => (
+                  <View key={match.id}>
+                    {renderUpcomingMatch({ item: match })}
+                  </View>
+                ))
+              ) : (
+                <View className={`${cardBgColor} rounded-lg p-6 items-center shadow-sm`}>
+                  <Ionicons 
+                    name="calendar-outline" 
+                    size={48} 
+                    color={colorScheme === 'dark' ? '#6B7280' : '#9CA3AF'} 
+                  />
+                  <Text className={`mt-2 ${textSecondaryColor}`}>
+                    No hay partidos programados
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* 🏆 TORNEOS ACTIVOS */}
+            <View className="mb-6">
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className={`text-xl font-bold ${textColor}`}>
+                  Torneos Activos
+                </Text>
+                <TouchableOpacity onPress={() => router.push('/tournaments')}>
+                  <Text className="text-blue-600 font-medium">Ver todos</Text>
+                </TouchableOpacity>
+              </View>
+              
+              {tournamentsLoading ? (
+                <View className={`${cardBgColor} rounded-lg p-6 items-center shadow-sm`}>
+                  <Text className={textSecondaryColor}>Cargando torneos...</Text>
+                </View>
+              ) : activeTournaments.length > 0 ? (
+                activeTournaments.slice(0, 2).map((tournament) => (
+                  <View key={tournament.id}>
+                    {renderActiveTournament({ item: tournament })}
+                  </View>
+                ))
+              ) : (
+                <View className={`${cardBgColor} rounded-lg p-6 items-center shadow-sm`}>
+                  <Ionicons 
+                    name="trophy-outline" 
+                    size={48} 
+                    color={colorScheme === 'dark' ? '#6B7280' : '#9CA3AF'} 
+                  />
+                  <Text className={`mt-2 ${textSecondaryColor}`}>
+                    No hay torneos activos
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* ⚡ ACCIONES RÁPIDAS (Solo para admins) */}
+            {isAdmin && (
+              <View className="mb-6">
+                <Text className={`text-xl font-bold mb-4 ${textColor}`}>
+                  Acciones Rápidas
+                </Text>
+                <View className="flex-row justify-between">
+                  <TouchableOpacity 
+                    className="bg-blue-600 rounded-lg p-4 flex-1 mr-2 items-center"
+                    onPress={() => router.push('/tournament/create')}
+                  >
+                    <Ionicons name="add-circle-outline" size={24} color="white" />
+                    <Text className="text-white font-medium mt-1">Crear Torneo</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    className="bg-green-600 rounded-lg p-4 flex-1 mx-1 items-center"
+                    onPress={() => router.push('/team/create')}
+                  >
+                    <Ionicons name="people-outline" size={24} color="white" />
+                    <Text className="text-white font-medium mt-1">Crear Equipo</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    className="bg-purple-600 rounded-lg p-4 flex-1 ml-2 items-center"
+                    onPress={() => router.push('/match/create')}
+                  >
+                    <Ionicons name="calendar-outline" size={24} color="white" />
+                    <Text className="text-white font-medium mt-1">Crear Partido</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </>
+        )}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        ListHeaderComponent={
-          <>
-            <View className="p-4 mb-6">
-              <Text className={`${textColor} text-2xl font-bold`}>
-                ¡Bienvenido{userDetails?.full_name ? `, ${userDetails.full_name.split(' ')[0]}` : ''}!
-              </Text>
-              <Text className={textSecondaryColor}>
-                {isAdmin() ? 'Panel de administración de la liga de voleibol' : 'Liga de voleibol'}
-              </Text>
-            </View>
-
-            <View className="flex-row px-4 mb-6">
-              <StatCard 
-                icon="people-outline" 
-                title="Equipos" 
-                value={teamsCount} 
-              />
-              <StatCard 
-                icon="calendar-outline" 
-                title="Partidos" 
-                value={matchesCount} 
-              />
-              <StatCard 
-                icon="trophy-outline" 
-                title="Torneos activos" 
-                value={activeTournaments.length} 
-              />
-            </View>
-
-            <View className="flex-row justify-between items-center px-4 mb-3 mt-2">
-              <Text className={`${textColor} text-lg font-semibold`}>Próximos partidos</Text>
-              <TouchableOpacity onPress={() => router.push('/matches')}>
-                <Text className="text-blue-500 font-semibold">Ver todos</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View className="px-4">
-              {loading ? (
-                <Text className={`${textSecondaryColor} text-center my-5 italic`}>
-                  Cargando próximos partidos...
-                </Text>
-              ) : upcomingMatches.length === 0 ? (
-                <Text className={`${textSecondaryColor} text-center my-5 italic`}>
-                  No hay próximos partidos programados
-                </Text>
-              ) : (
-                upcomingMatches.map((match, index) => (
-                  <View key={match.id || index}>{renderMatchItem({ item: match })}</View>
-                ))
-              )}
-            </View>
-
-            <View className="flex-row justify-between items-center px-4 mb-3 mt-2">
-              <Text className={`${textColor} text-lg font-semibold`}>Torneos activos</Text>
-              <TouchableOpacity onPress={() => router.push('/tournaments')}>
-                <Text className="text-blue-500 font-semibold">Ver todos</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View className="px-4">
-              {loading ? (
-                <Text className={`${textSecondaryColor} text-center my-5 italic`}>
-                  Cargando torneos activos...
-                </Text>
-              ) : activeTournaments.length === 0 ? (
-                <Text className={`${textSecondaryColor} text-center my-5 italic`}>
-                  No hay torneos activos actualmente
-                </Text>
-              ) : (
-                activeTournaments.map((tournament, index) => (
-                  <View key={tournament.id || index}>{renderTournamentItem({ item: tournament })}</View>
-                ))
-              )}
-            </View>
-          </>
-        }
-        contentContainerStyle={{ paddingBottom: 16 }}
+        showsVerticalScrollIndicator={false}
       />
     </View>
   );

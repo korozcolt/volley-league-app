@@ -1,12 +1,4 @@
-import { Tournament } from '@/lib/types/models';
-
-export interface TournamentFilters {
-  status?: string[];
-  type?: string[];
-  date_from?: string;
-  date_to?: string;
-  search?: string;
-}
+import { Team, Tournament, TournamentFilters } from '@/lib/types/models';
 
 export interface ITournamentsProvider {
   // CRUD básico

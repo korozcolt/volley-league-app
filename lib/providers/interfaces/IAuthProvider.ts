@@ -1,9 +1,9 @@
-import { User } from '@/lib/types/models';
+import { User, UserRole } from '@/lib/types/models';
 
 export interface IAuthProvider {
   // Autenticación básica
   login(email: string, password: string): Promise<{ user: User | null; error: string | null }>;
-  register(email: string, password: string, fullName: string, role?: string): Promise<{ user: User | null; error: string | null }>;
+  register(email: string, password: string, fullName: string, role?: UserRole): Promise<{ user: User | null; error: string | null }>;
   logout(): Promise<{ error: string | null }>;
   
   // Estado de autenticación
@@ -11,7 +11,7 @@ export interface IAuthProvider {
   isAuthenticated(): boolean;
   
   // Verificación de roles
-  hasRole(role: string): boolean;
+  hasRole(role: UserRole): boolean;
   isAdmin(): boolean;
   isReferee(): boolean;
   isCoach(): boolean;

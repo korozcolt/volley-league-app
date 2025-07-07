@@ -1,58 +1,69 @@
-// app/(tabs)/matches.tsx
-
-import { ActivityIndicator, Alert, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
-import { Match, MatchStatus, Team } from '@/lib/types/models';
+// app/(tabs)/matches.tsx - Migrado a providers
+import { ActivityIndicator, Alert, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Match, MatchStatus } from '@/lib/types/models';
 import { useEffect, useState } from 'react';
+// 🎯 IMPORTS AGNÓSTICOS - No más Supabase directo
+import { useLiveMatches, useMatches } from '@/lib/hooks/useMatches';
 
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { router } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { useAuthContext } from '@/lib/context/AuthContext';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
-type MatchWithTeams = Match & {
-  home_team: Team;
-  away_team: Team;
-};
+type MatchFilter = 'all' | 'upcoming' | 'live' | 'completed';
 
 export default function MatchesScreen() {
-  const [matches, setMatches] = useState<MatchWithTeams[]>([]);
-  const [loading, setLoading] = useState(true);
+  // 🔄 HOOKS AGNÓSTICOS
+  const { 
+    matches, 
+    loading, 
+    error, 
+    refreshing, 
+    fetchMatches, 
+    refresh, 
+    clearError 
+  } = useMatches({ autoFetch: true });
+  
+  const { matches: liveMatches } = useLiveMatches();
+  const { isAdmin } = useAuth();
   const colorScheme = useColorScheme() as 'light' | 'dark';
-  const { isAdmin } = useAuthContext();
+  
+  // Estados locales
+  const [selectedFilter, setSelectedFilter] = useState<MatchFilter>('all');
 
   useEffect(() => {
-    fetchMatches();
-  }, []);
+    if (error) {
+      Alert.alert('Error', error, [
+        { text: 'Reintentar', onPress: () => { clearError(); fetchMatches(); } },
+        { text: 'OK', onPress: clearError }
+      ]);
+    }
+  }, [error]);
 
-  const fetchMatches = async () => {
-    try {
-      setLoading(true);
-      // Obtener partidos con información de equipos
-      const { data, error } = await supabase
-        .from('matches')
-        .select(`
-          *,
-          home_team:home_team_id(id, name, logo_url),
-          away_team:away_team_id(id, name, logo_url)
-        `)
-        .order('match_date', { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      setMatches(data as unknown as MatchWithTeams[]);
-    } catch (error) {
-      console.error('Error al cargar partidos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los partidos');
-    } finally {
-      setLoading(false);
+  // 🔍 FILTRAR PARTIDOS
+  const getFilteredMatches = (): Match[] => {
+    const now = new Date();
+    
+    switch (selectedFilter) {
+      case 'upcoming':
+        return matches.filter(match => 
+          match.status === MatchStatus.SCHEDULED && 
+          new Date(match.match_date) > now
+        );
+      case 'live':
+        return matches.filter(match => match.status === MatchStatus.IN_PROGRESS);
+      case 'completed':
+        return matches.filter(match => match.status === MatchStatus.COMPLETED);
+      default:
+        return matches;
     }
   };
+
+  const filteredMatches = getFilteredMatches();
 
   const navigateToMatchDetails = (matchId: string) => {
     router.push(`/match/${matchId}`);
@@ -62,150 +73,274 @@ export default function MatchesScreen() {
     router.push('/match/create');
   };
 
-  const getStatusColor = (status: MatchStatus) => {
+  const getStatusColor = (status: MatchStatus): string => {
     switch (status) {
       case MatchStatus.SCHEDULED:
-        return '#FFC107'; // Amarillo
+        return '#3B82F6';
       case MatchStatus.IN_PROGRESS:
-        return '#4CAF50'; // Verde
+        return '#10B981';
       case MatchStatus.COMPLETED:
-        return '#2196F3'; // Azul
+        return '#6B7280';
       case MatchStatus.CANCELLED:
-        return '#F44336'; // Rojo
+        return '#EF4444';
+      case MatchStatus.POSTPONED:
+        return '#F59E0B';
       default:
-        return '#9E9E9E';
+        return '#6B7280';
     }
   };
 
-  const getStatusText = (status: MatchStatus) => {
+  const getStatusText = (status: MatchStatus): string => {
     switch (status) {
       case MatchStatus.SCHEDULED:
         return 'Programado';
       case MatchStatus.IN_PROGRESS:
-        return 'En juego';
+        return 'En Vivo';
       case MatchStatus.COMPLETED:
         return 'Finalizado';
       case MatchStatus.CANCELLED:
         return 'Cancelado';
+      case MatchStatus.POSTPONED:
+        return 'Pospuesto';
       default:
         return 'Desconocido';
     }
   };
 
-  const formatMatchDate = (dateString: string | null) => {
-    if (!dateString) return 'Fecha por confirmar';
+  const renderMatchItem = ({ item: match }: { item: Match }) => {
+    const matchDate = new Date(match.match_date);
+    const isToday = matchDate.toDateString() === new Date().toDateString();
+    const isLive = match.status === MatchStatus.IN_PROGRESS;
     
-    const date = new Date(dateString);
-    return `${date.toLocaleDateString()} - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  };
-
-  const renderMatchItem = ({ item }: { item: MatchWithTeams }) => {
     return (
       <TouchableOpacity
         style={[
           styles.matchCard,
-          { backgroundColor: Colors[colorScheme].card }
+          { backgroundColor: Colors[colorScheme].card },
+          isLive && styles.liveMatchCard
         ]}
-        onPress={() => navigateToMatchDetails(item.id)}
+        onPress={() => navigateToMatchDetails(match.id)}
       >
         <ThemedView style={styles.matchHeader}>
-          <ThemedView
+          <ThemedView style={styles.matchInfo}>
+            <ThemedText style={styles.tournamentName}>
+              {match.tournament?.name || 'Sin torneo'}
+            </ThemedText>
+            <ThemedView style={styles.dateTimeContainer}>
+              <Ionicons 
+                name="calendar-outline" 
+                size={14} 
+                color={Colors[colorScheme].tabIconDefault} 
+              />
+              <ThemedText style={styles.dateText}>
+                {isToday ? 'HOY' : matchDate.toLocaleDateString()}
+              </ThemedText>
+              <Ionicons 
+                name="time-outline" 
+                size={14} 
+                color={Colors[colorScheme].tabIconDefault} 
+                style={styles.timeIcon}
+              />
+              <ThemedText style={styles.timeText}>
+                {matchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </ThemedText>
+            </ThemedView>
+          </ThemedView>
+          
+          <ThemedView 
             style={[
-              styles.statusBadge,
-              { backgroundColor: getStatusColor(item.status) }
+              styles.statusBadge, 
+              { backgroundColor: getStatusColor(match.status) }
             ]}
           >
             <ThemedText style={styles.statusText}>
-              {getStatusText(item.status)}
-            </ThemedText>
-          </ThemedView>
-          <ThemedText style={styles.matchDate}>
-            {formatMatchDate(item.match_date || null)}
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedView style={styles.matchTeams}>
-          <ThemedView style={styles.team}>
-            <ThemedText type="defaultSemiBold" style={styles.teamName}>
-              {item.home_team?.name || 'Por definir'}
-            </ThemedText>
-          </ThemedView>
-
-          <ThemedView style={styles.score}>
-            <ThemedText style={styles.scoreText}>
-              {item.home_team_score}
-            </ThemedText>
-            <ThemedText style={styles.scoreSeparator}>-</ThemedText>
-            <ThemedText style={styles.scoreText}>
-              {item.away_team_score}
-            </ThemedText>
-          </ThemedView>
-
-          <ThemedView style={styles.team}>
-            <ThemedText type="defaultSemiBold" style={styles.teamName}>
-              {item.away_team?.name || 'Por definir'}
+              {getStatusText(match.status)}
             </ThemedText>
           </ThemedView>
         </ThemedView>
 
-        {item.location && (
-          <ThemedView style={styles.matchFooter}>
+        <ThemedView style={styles.teamsContainer}>
+          <ThemedView style={styles.teamContainer}>
+            <ThemedText style={styles.teamName}>
+              {match.home_team?.name || 'Equipo Local'}
+            </ThemedText>
+            {match.status === MatchStatus.COMPLETED && (
+              <ThemedText style={styles.teamScore}>
+                {match.home_score || 0}
+              </ThemedText>
+            )}
+          </ThemedView>
+          
+          <ThemedView style={styles.vsContainer}>
+            <ThemedText style={styles.vsText}>VS</ThemedText>
+          </ThemedView>
+          
+          <ThemedView style={styles.teamContainer}>
+            <ThemedText style={styles.teamName}>
+              {match.away_team?.name || 'Equipo Visitante'}
+            </ThemedText>
+            {match.status === MatchStatus.COMPLETED && (
+              <ThemedText style={styles.teamScore}>
+                {match.away_score || 0}
+              </ThemedText>
+            )}
+          </ThemedView>
+        </ThemedView>
+
+        {match.location && (
+          <ThemedView style={styles.locationContainer}>
             <Ionicons 
               name="location-outline" 
-              size={16} 
-              color={Colors[colorScheme].text} 
+              size={14} 
+              color={Colors[colorScheme].tabIconDefault} 
             />
             <ThemedText style={styles.locationText}>
-              {item.location}
+              {match.location}
             </ThemedText>
+          </ThemedView>
+        )}
+
+        {isLive && (
+          <ThemedView style={styles.liveIndicator}>
+            <ThemedView style={styles.liveDot} />
+            <ThemedText style={styles.liveText}>EN VIVO</ThemedText>
           </ThemedView>
         )}
       </TouchableOpacity>
     );
   };
 
-  return (
-    <ThemedView style={styles.container}>
-      <ThemedView style={styles.header}>
-        <ThemedText type="title">Partidos</ThemedText>
-        {isAdmin() && (
+  const renderFilterButton = (filter: MatchFilter, label: string, count: number) => {
+    const isSelected = selectedFilter === filter;
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.filterButton,
+          isSelected && { backgroundColor: Colors[colorScheme].tint },
+          !isSelected && { backgroundColor: Colors[colorScheme].card }
+        ]}
+        onPress={() => setSelectedFilter(filter)}
+      >
+        <ThemedText 
+          style={[
+            styles.filterButtonText,
+            isSelected && styles.filterButtonTextSelected
+          ]}
+        >
+          {label}
+        </ThemedText>
+        <ThemedText 
+          style={[
+            styles.filterCount,
+            isSelected && styles.filterCountSelected
+          ]}
+        >
+          {count}
+        </ThemedText>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderEmptyComponent = () => {
+    if (loading) {
+      return (
+        <ThemedView style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+          <ThemedText style={styles.loadingText}>Cargando partidos...</ThemedText>
+        </ThemedView>
+      );
+    }
+
+    return (
+      <ThemedView style={styles.centerContainer}>
+        <Ionicons 
+          name="calendar-outline" 
+          size={64} 
+          color={Colors[colorScheme].tabIconDefault} 
+        />
+        <ThemedText style={styles.emptyText}>
+          {selectedFilter === 'all' 
+            ? 'No hay partidos registrados'
+            : `No hay partidos ${selectedFilter === 'upcoming' ? 'próximos' : 
+                                selectedFilter === 'live' ? 'en vivo' : 'completados'}`
+          }
+        </ThemedText>
+        {isAdmin && selectedFilter === 'all' && (
           <TouchableOpacity 
             style={styles.createButton}
             onPress={navigateToCreateMatch}
           >
-            <ThemedText style={styles.createButtonText}>+ Nuevo</ThemedText>
+            <ThemedText style={styles.createButtonText}>
+              Crear primer partido
+            </ThemedText>
           </TouchableOpacity>
         )}
       </ThemedView>
+    );
+  };
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#4a90e2" style={styles.loader} />
-      ) : matches.length === 0 ? (
-        <ThemedView style={styles.emptyState}>
-          <ThemedText style={styles.emptyStateText}>
-            No hay partidos disponibles
+  const renderHeader = () => (
+    <ThemedView style={styles.header}>
+      <ThemedView style={styles.titleContainer}>
+        <ThemedText style={styles.title}>Partidos</ThemedText>
+        {liveMatches.length > 0 && (
+          <ThemedView style={styles.liveIndicatorHeader}>
+            <ThemedView style={styles.liveDotHeader} />
+            <ThemedText style={styles.liveTextHeader}>
+              {liveMatches.length} en vivo
+            </ThemedText>
+          </ThemedView>
+        )}
+      </ThemedView>
+
+      {/* 🔄 FILTROS */}
+      <ThemedView style={styles.filtersContainer}>
+        {renderFilterButton('all', 'Todos', matches.length)}
+        {renderFilterButton(
+          'upcoming', 
+          'Próximos', 
+          matches.filter(m => m.status === MatchStatus.SCHEDULED && new Date(m.match_date) > new Date()).length
+        )}
+        {renderFilterButton(
+          'live', 
+          'En Vivo', 
+          matches.filter(m => m.status === MatchStatus.IN_PROGRESS).length
+        )}
+        {renderFilterButton(
+          'completed', 
+          'Finalizados', 
+          matches.filter(m => m.status === MatchStatus.COMPLETED).length
+        )}
+      </ThemedView>
+
+      {/* ➕ BOTÓN CREAR (Solo para admins) */}
+      {isAdmin && (
+        <TouchableOpacity 
+          style={[styles.createMatchButton, { backgroundColor: Colors[colorScheme].tint }]}
+          onPress={navigateToCreateMatch}
+        >
+          <ThemedText style={styles.createMatchButtonText}>
+            ➕ Programar Partido
           </ThemedText>
-          {isAdmin() && (
-            <TouchableOpacity 
-              style={[styles.createButton, styles.emptyStateButton]}
-              onPress={navigateToCreateMatch}
-            >
-              <ThemedText style={styles.createButtonText}>Crear primer partido</ThemedText>
-            </TouchableOpacity>
-          )}
-        </ThemedView>
-      ) : (
-        <FlatList
-          data={matches}
-          renderItem={renderMatchItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={10}
-          onRefresh={fetchMatches}
-          refreshing={loading}
-        />
+        </TouchableOpacity>
       )}
+    </ThemedView>
+  );
+
+  return (
+    <ThemedView style={styles.container}>
+      <FlatList
+        data={filteredMatches}
+        renderItem={renderMatchItem}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmptyComponent}
+        refreshing={refreshing}
+        onRefresh={refresh}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+      />
     </ThemedView>
   );
 }
@@ -213,110 +348,223 @@ export default function MatchesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  listContent: {
+    flexGrow: 1,
     padding: 16,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 20,
   },
-  createButton: {
-    backgroundColor: '#4a90e2',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  createButtonText: {
-    color: 'white',
+  title: {
+    fontSize: 28,
     fontWeight: 'bold',
   },
-  loader: {
+  liveIndicatorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  liveDotHeader: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'white',
+    marginRight: 4,
+  },
+  liveTextHeader: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  filterButton: {
     flex: 1,
-    justifyContent: 'center',
+    padding: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 2,
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  filterButtonTextSelected: {
+    color: 'white',
+  },
+  filterCount: {
+    fontSize: 12,
+    marginTop: 2,
+    opacity: 0.7,
+  },
+  filterCountSelected: {
+    color: 'white',
+  },
+  createMatchButton: {
+    padding: 12,
+    borderRadius: 8,
     alignItems: 'center',
   },
-  list: {
-    paddingBottom: 20,
+  createMatchButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
   },
   matchCard: {
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  liveMatchCard: {
+    borderColor: '#EF4444',
+    borderWidth: 2,
   },
   matchHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
   },
+  matchInfo: {
+    flex: 1,
+  },
+  tournamentName: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+    opacity: 0.8,
+  },
+  dateTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateText: {
+    fontSize: 12,
+    marginLeft: 4,
+    opacity: 0.7,
+  },
+  timeIcon: {
+    marginLeft: 12,
+  },
+  timeText: {
+    fontSize: 12,
+    marginLeft: 4,
+    opacity: 0.7,
+  },
   statusBadge: {
-    paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 4,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   statusText: {
     color: 'white',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
-  matchDate: {
-    fontSize: 14,
-  },
-  matchTeams: {
+  teamsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  team: {
-    flex: 2,
-    padding: 4,
+  teamContainer: {
+    flex: 1,
+    alignItems: 'center',
   },
   teamName: {
+    fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
   },
-  score: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scoreText: {
-    fontSize: 20,
+  teamScore: {
+    fontSize: 24,
     fontWeight: 'bold',
+    marginTop: 4,
   },
-  scoreSeparator: {
-    fontSize: 20,
+  vsContainer: {
+    paddingHorizontal: 16,
+  },
+  vsText: {
+    fontSize: 14,
     fontWeight: 'bold',
-    marginHorizontal: 8,
+    opacity: 0.5,
   },
-  matchFooter: {
+  locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 8,
   },
   locationText: {
-    fontSize: 14,
+    fontSize: 12,
     marginLeft: 4,
+    opacity: 0.7,
   },
-  emptyState: {
+  liveIndicator: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  liveDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'white',
+    marginRight: 3,
+  },
+  liveText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    paddingVertical: 60,
   },
-  emptyStateText: {
+  loadingText: {
+    marginTop: 12,
+    opacity: 0.7,
+  },
+  emptyText: {
     fontSize: 16,
-    marginBottom: 20,
+    opacity: 0.7,
     textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 16,
   },
-  emptyStateButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+  createButton: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#3b82f6',
+  },
+  createButtonText: {
+    color: 'white',
+    fontWeight: '600',
   },
 });

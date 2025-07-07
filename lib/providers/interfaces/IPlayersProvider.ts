@@ -1,11 +1,5 @@
-import { Player } from '@/lib/types/models';
-
-export interface PlayerFilters {
-  team_id?: string;
-  position?: string[];
-  active?: boolean;
-  search?: string;
-}
+// lib/providers/interfaces/IPlayersProvider.ts - CORREGIDO
+import { Player, PlayerFilters, PlayerPosition } from '@/lib/types/models';
 
 export interface IPlayersProvider {
   // CRUD básico
@@ -19,6 +13,6 @@ export interface IPlayersProvider {
   getByTeam(teamId: string): Promise<{ data: Player[]; error: string | null }>;
   search(query: string): Promise<{ data: Player[]; error: string | null }>;
   toggleActive(id: string, active: boolean): Promise<{ data: Player | null; error: string | null }>;
-  setCaptain(playerId: string, teamId: string): Promise<{ error: string | null }>;
-  validateJerseyNumber(teamId: string, jerseyNumber: number, excludePlayerId?: string): Promise<{ valid: boolean; error: string | null }>;
+  setCaptain(id: string, captain: boolean): Promise<{ data: Player | null; error: string | null }>;
+  getStats(id: string): Promise<{ data: any | null; error: string | null }>;
 }

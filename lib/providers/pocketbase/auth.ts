@@ -1,329 +1,281 @@
-import { User, UserRole } from '@/lib/types/models';
-
+// lib/providers/pocketbase/auth.ts
 import { IAuthProvider } from '../interfaces/IAuthProvider';
 import PocketBase from 'pocketbase';
+import { User } from '@/lib/types/models';
 
 export class PocketBaseAuthProvider implements IAuthProvider {
-    constructor(private pb: PocketBase) { }
+  constructor(private pb: PocketBase) {}
 
-    /**
-     * Iniciar sesión con email y contraseña
-     */
-    async login(email: string, password: string): Promise<{ user: User | null; error: string | null }> {
-        try {
-            const authData = await this.pb.collection('users').authWithPassword(email, password);
-
-            // Mapear datos de PocketBase a nuestro modelo User
-            const user: User = {
-                id: authData.record.id,
-                email: authData.record.email,
-                full_name: authData.record.full_name || authData.record.name || '',
-                role: this.mapPocketBaseRole(authData.record.role),
-                created_at: authData.record.created || new Date().toISOString(),
-                updated_at: authData.record.updated || new Date().toISOString(),
-            };
-
-            return { user, error: null };
-        } catch (error: any) {
-            console.error('Error en login PocketBase:', error);
-            return {
-                user: null,
-                error: error.message || 'Error al iniciar sesión'
-            };
-        }
+  /**
+   * Inicializar autenticación
+   */
+  async initializeAuth(): Promise<void> {
+    try {
+      // La autenticación se restaura automáticamente desde AsyncStorage
+      // en el constructor del PocketBaseProvider
+      console.log('PocketBase auth initialized');
+    } catch (error) {
+      console.error('Error inicializando autenticación:', error);
     }
+  }
 
-    /**
-     * Registrar nuevo usuario
-     */
-    async register(
-        email: string,
-        password: string,
-        fullName: string,
-        role: string = 'viewer'
-    ): Promise<{ user: User | null; error: string | null }> {
-        try {
-            const userData = {
-                email,
-                password,
-                passwordConfirm: password,
-                full_name: fullName,
-                name: fullName, // PocketBase usa 'name' por defecto
-                role: this.mapToSupabaseRole(role as UserRole), // Convertir a formato PocketBase
-            };
+  /**
+   * Login con email y password
+   */
+  async login(email: string, password: string): Promise<{ user: User | null; error: string | null }> {
+    try {
+      const authData = await this.pb.collection('users').authWithPassword(email, password);
+      
+      if (!authData.record) {
+        return { user: null, error: 'Error de autenticación' };
+      }
 
-            const createdUser = await this.pb.collection('users').create(userData);
-
-            // Mapear respuesta a nuestro modelo
-            const user: User = {
-                id: createdUser.id,
-                email: createdUser.email,
-                full_name: createdUser.full_name || createdUser.name || '',
-                role: this.mapPocketBaseRole(createdUser.role),
-                created_at: createdUser.created || new Date().toISOString(),
-                updated_at: createdUser.updated || new Date().toISOString(),
-            };
-
-            return { user, error: null };
-        } catch (error: any) {
-            console.error('Error en registro PocketBase:', error);
-            return {
-                user: null,
-                error: this.parsePocketBaseError(error)
-            };
-        }
+      const user: User = this.mapPocketBaseUserToUser(authData.record);
+      return { user, error: null };
+    } catch (error: any) {
+      console.error('Error en login:', error);
+      return { 
+        user: null, 
+        error: this.parsePocketBaseError(error) 
+      };
     }
+  }
 
-    /**
-     * Cerrar sesión
-     */
-    async logout(): Promise<{ error: string | null }> {
-        try {
-            this.pb.authStore.clear();
-            return { error: null };
-        } catch (error: any) {
-            console.error('Error en logout PocketBase:', error);
-            return {
-                error: error.message || 'Error al cerrar sesión'
-            };
-        }
+  /**
+   * Registro de nuevo usuario
+   */
+  async register(
+    email: string, 
+    password: string, 
+    fullName: string, 
+    role: string = 'viewer'
+  ): Promise<{ user: User | null; error: string | null }> {
+    try {
+      const userData = {
+        email,
+        password,
+        passwordConfirm: password,
+        full_name: fullName,
+        role,
+        emailVisibility: true
+      };
+
+      const newUser = await this.pb.collection('users').create(userData);
+      
+      // Hacer login automático después del registro
+      const loginResult = await this.login(email, password);
+      return loginResult;
+    } catch (error: any) {
+      console.error('Error en registro:', error);
+      return { 
+        user: null, 
+        error: this.parsePocketBaseError(error) 
+      };
     }
+  }
 
-    /**
-     * Obtener usuario actual
-     */
-    getCurrentUser(): User | null {
-        try {
-            const authModel = this.pb.authStore.model;
-
-            if (!authModel || !this.pb.authStore.isValid) {
-                return null;
-            }
-
-            return {
-                id: authModel.id,
-                email: authModel.email,
-                full_name: authModel.full_name || authModel.name || '',
-                role: this.mapPocketBaseRole(authModel.role),
-                created_at: authModel.created || new Date().toISOString(),
-                updated_at: authModel.updated || new Date().toISOString(),
-            };
-        } catch (error) {
-            console.error('Error obteniendo usuario actual:', error);
-            return null;
-        }
+  /**
+   * Logout
+   */
+  async logout(): Promise<{ error: string | null }> {
+    try {
+      this.pb.authStore.clear();
+      return { error: null };
+    } catch (error: any) {
+      console.error('Error en logout:', error);
+      return { error: 'Error cerrando sesión' };
     }
+  }
 
-    /**
-     * Verificar si está autenticado
-     */
-    isAuthenticated(): boolean {
-        return this.pb.authStore.isValid && !!this.pb.authStore.model;
+  /**
+   * Obtener usuario actual
+   */
+  getCurrentUser(): User | null {
+    try {
+      const model = this.pb.authStore.model;
+      if (!model) return null;
+      
+      return this.mapPocketBaseUserToUser(model);
+    } catch (error) {
+      console.error('Error obteniendo usuario actual:', error);
+      return null;
     }
+  }
 
-    /**
-     * Verificar si tiene un rol específico
-     */
-    hasRole(role: string): boolean {
-        const user = this.getCurrentUser();
-        return user?.role === role;
+  /**
+   * Verificar si está autenticado
+   */
+  isAuthenticated(): boolean {
+    return this.pb.authStore.isValid;
+  }
+
+  /**
+   * Verificar si tiene rol específico
+   */
+  hasRole(role: string): boolean {
+    const user = this.getCurrentUser();
+    return user?.role === role;
+  }
+
+  /**
+   * Verificar si es administrador
+   */
+  isAdmin(): boolean {
+    return this.hasRole('admin');
+  }
+
+  /**
+   * Verificar si es árbitro
+   */
+  isReferee(): boolean {
+    return this.hasRole('referee');
+  }
+
+  /**
+   * Verificar si es entrenador
+   */
+  isCoach(): boolean {
+    return this.hasRole('coach');
+  }
+
+  /**
+   * Verificar si es jugador
+   */
+  isPlayer(): boolean {
+    return this.hasRole('player');
+  }
+
+  /**
+   * Verificar si es espectador
+   */
+  isViewer(): boolean {
+    return this.hasRole('viewer');
+  }
+
+  /**
+   * Actualizar perfil de usuario
+   */
+  async updateProfile(userId: string, data: Partial<User>): Promise<{ user: User | null; error: string | null }> {
+    try {
+      if (!this.isAuthenticated()) {
+        return { user: null, error: 'Usuario no autenticado' };
+      }
+
+      const updateData: any = {};
+      
+      if (data.full_name) updateData.full_name = data.full_name;
+      if (data.email) updateData.email = data.email;
+      if (data.role && this.isAdmin()) updateData.role = data.role; // Solo admin puede cambiar roles
+
+      const updatedUser = await this.pb.collection('users').update(userId, updateData);
+      
+      const user = this.mapPocketBaseUserToUser(updatedUser);
+      return { user, error: null };
+    } catch (error: any) {
+      console.error('Error actualizando perfil:', error);
+      return { 
+        user: null, 
+        error: this.parsePocketBaseError(error) 
+      };
     }
+  }
 
-    /**
-     * Verificar si es administrador
-     */
-    isAdmin(): boolean {
-        return this.hasRole(UserRole.ADMIN);
+  /**
+   * Cambiar contraseña
+   */
+  async changePassword(oldPassword: string, newPassword: string): Promise<{ error: string | null }> {
+    try {
+      if (!this.isAuthenticated()) {
+        return { error: 'Usuario no autenticado' };
+      }
+
+      const user = this.getCurrentUser();
+      if (!user) {
+        return { error: 'Usuario no encontrado' };
+      }
+
+      // Verificar contraseña actual primero
+      try {
+        await this.pb.collection('users').authWithPassword(user.email, oldPassword);
+      } catch {
+        return { error: 'Contraseña actual incorrecta' };
+      }
+
+      // Cambiar contraseña
+      await this.pb.collection('users').update(user.id, {
+        password: newPassword,
+        passwordConfirm: newPassword,
+        oldPassword: oldPassword
+      });
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Error cambiando contraseña:', error);
+      return { error: this.parsePocketBaseError(error) };
     }
+  }
 
-    /**
-     * Verificar si es árbitro
-     */
-    isReferee(): boolean {
-        // En PocketBase podríamos tener 'referee' como rol
-        return this.hasRole('referee');
+  /**
+   * Refrescar autenticación
+   */
+  async refreshAuth(): Promise<{ user: User | null; error: string | null }> {
+    try {
+      if (!this.isAuthenticated()) {
+        return { user: null, error: 'No hay sesión activa' };
+      }
+
+      // Refrescar token si es necesario
+      await this.pb.collection('users').authRefresh();
+      
+      const user = this.getCurrentUser();
+      return { user, error: null };
+    } catch (error: any) {
+      console.error('Error refrescando autenticación:', error);
+      // Si falla el refresh, limpiar la sesión
+      this.pb.authStore.clear();
+      return { 
+        user: null, 
+        error: 'Sesión expirada, por favor inicia sesión nuevamente' 
+      };
     }
+  }
 
-    /**
-     * Verificar si es entrenador
-     */
-    isCoach(): boolean {
-        // En PocketBase podríamos tener 'coach' como rol
-        return this.hasRole('coach');
+  // 🔧 MÉTODOS PRIVADOS DE UTILIDAD
+
+  /**
+   * Mapear usuario de PocketBase a nuestro modelo User
+   */
+  private mapPocketBaseUserToUser(pocketbaseUser: any): User {
+    return {
+      id: pocketbaseUser.id,
+      email: pocketbaseUser.email,
+      full_name: pocketbaseUser.full_name || '',
+      role: pocketbaseUser.role || 'viewer',
+      created_at: pocketbaseUser.created || new Date().toISOString(),
+      updated_at: pocketbaseUser.updated || new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Parsear errores de PocketBase a mensajes amigables
+   */
+  private parsePocketBaseError(error: any): string {
+    if (error.response?.data?.message) {
+      return error.response.data.message;
     }
-
-    /**
-     * Verificar si es jugador
-     */
-    isPlayer(): boolean {
-        // En PocketBase podríamos tener 'player' como rol
-        return this.hasRole('player');
+    
+    if (error.message?.includes('Failed to authenticate')) {
+      return 'Email o contraseña incorrectos';
     }
-
-    /**
-     * Verificar si es espectador
-     */
-    isViewer(): boolean {
-        return this.hasRole(UserRole.VIEWER);
+    
+    if (error.message?.includes('email')) {
+      return 'Email ya está en uso o es inválido';
     }
-
-    /**
-     * Actualizar perfil de usuario
-     */
-    async updateProfile(userId: string, data: Partial<User>): Promise<{ user: User | null; error: string | null }> {
-        try {
-            // Mapear datos a formato PocketBase
-            const updateData: any = {};
-
-            if (data.full_name) {
-                updateData.full_name = data.full_name;
-                updateData.name = data.full_name; // PocketBase compatibility
-            }
-
-            if (data.email) {
-                updateData.email = data.email;
-            }
-
-            if (data.role) {
-                updateData.role = this.mapToSupabaseRole(data.role);
-            }
-
-            const updatedRecord = await this.pb.collection('users').update(userId, updateData);
-
-            const user: User = {
-                id: updatedRecord.id,
-                email: updatedRecord.email,
-                full_name: updatedRecord.full_name || updatedRecord.name || '',
-                role: this.mapPocketBaseRole(updatedRecord.role),
-                created_at: updatedRecord.created || new Date().toISOString(),
-                updated_at: updatedRecord.updated || new Date().toISOString(),
-            };
-
-            return { user, error: null };
-        } catch (error: any) {
-            console.error('Error actualizando perfil:', error);
-            return {
-                user: null,
-                error: this.parsePocketBaseError(error)
-            };
-        }
+    
+    if (error.message?.includes('password')) {
+      return 'La contraseña debe tener al menos 8 caracteres';
     }
-
-    /**
-     * Cambiar contraseña
-     */
-    async changePassword(oldPassword: string, newPassword: string): Promise<{ error: string | null }> {
-        try {
-            const user = this.getCurrentUser();
-            if (!user) {
-                return { error: 'Usuario no autenticado' };
-            }
-
-            // En PocketBase necesitamos verificar la contraseña actual y cambiarla
-            await this.pb.collection('users').update(user.id, {
-                oldPassword,
-                password: newPassword,
-                passwordConfirm: newPassword,
-            });
-
-            return { error: null };
-        } catch (error: any) {
-            console.error('Error cambiando contraseña:', error);
-            return {
-                error: this.parsePocketBaseError(error)
-            };
-        }
-    }
-
-    /**
-     * Inicializar autenticación (cargar sesión guardada)
-     */
-    async initializeAuth(): Promise<void> {
-        // La inicialización se maneja en el constructor del PocketBaseProvider
-        // que configura la persistencia con AsyncStorage
-    }
-
-    /**
-     * Refrescar autenticación
-     */
-    async refreshAuth(): Promise<{ user: User | null; error: string | null }> {
-        try {
-            if (!this.pb.authStore.isValid) {
-                return { user: null, error: 'Sesión no válida' };
-            }
-
-            // En PocketBase, el token se refresca automáticamente
-            // Solo necesitamos obtener el usuario actual
-            const user = this.getCurrentUser();
-            return { user, error: null };
-        } catch (error: any) {
-            console.error('Error refrescando auth:', error);
-            return {
-                user: null,
-                error: error.message || 'Error al refrescar sesión'
-            };
-        }
-    }
-
-    // 🔧 MÉTODOS PRIVADOS DE UTILIDAD
-
-    /**
-     * Mapear roles de PocketBase a nuestro enum UserRole
-     */
-    private mapPocketBaseRole(pocketbaseRole: string): UserRole {
-        switch (pocketbaseRole?.toLowerCase()) {
-            case 'admin':
-                return UserRole.ADMIN;
-            case 'viewer':
-            case 'user':
-            default:
-                return UserRole.VIEWER;
-        }
-    }
-
-    /**
-     * Mapear nuestros roles a formato PocketBase
-     */
-    private mapToSupabaseRole(role: UserRole): string {
-        switch (role) {
-            case UserRole.ADMIN:
-                return 'admin';
-            case UserRole.VIEWER:
-            default:
-                return 'viewer';
-        }
-    }
-
-    /**
-     * Parsear errores de PocketBase a mensajes amigables
-     */
-    private parsePocketBaseError(error: any): string {
-        if (error.response?.data) {
-            const data = error.response.data;
-
-            // Errores de validación
-            if (data.email) {
-                return 'El email ya está en uso o no es válido';
-            }
-
-            if (data.password) {
-                return 'La contraseña no cumple con los requisitos';
-            }
-
-            if (data.message) {
-                return data.message;
-            }
-        }
-
-        // Errores comunes
-        if (error.message?.includes('email')) {
-            return 'Credenciales incorrectas';
-        }
-
-        if (error.message?.includes('password')) {
-            return 'Contraseña incorrecta';
-        }
-
-        return error.message || 'Error desconocido';
-    }
+    
+    return error.message || 'Error desconocido';
+  }
 }

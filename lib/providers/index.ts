@@ -1,8 +1,8 @@
-// lib/providers/index.ts - Factory Principal
+// lib/providers/index.ts - Factory Principal Actualizado
 import { CONFIG } from '../config/constants';
 import { IBackendProvider } from './interfaces/IBackendProvider';
 import { PocketBaseProvider } from './pocketbase/PocketBaseProvider';
-import { SupabaseProvider } from './supabase/SupabaseProvider';
+//import { SupabaseProvider } from './supabase/SupabaseProvider';
 
 // ⭐ SINGLETON PATTERN - Una sola instancia del provider activo
 class BackendProviderFactory {
@@ -74,23 +74,27 @@ class BackendProviderFactory {
      * Obtener información del provider actual
      */
     static getProviderInfo(): { name: string; type: string; healthy?: boolean } {
-        if (!this.instance) {
-            return { name: 'None', type: 'none' };
+        try {
+            const instance = this.getInstance();
+            return {
+                name: instance.name,
+                type: this.providerType || 'unknown'
+            };
+        } catch (error) {
+            return {
+                name: 'Error',
+                type: 'error'
+            };
         }
-
-        return {
-            name: this.instance.name,
-            type: this.providerType || 'unknown'
-        };
     }
 
     /**
-     * Verificar salud del provider actual
+     * Verificar salud del provider
      */
-    static async checkHealth(): Promise<{ healthy: boolean; error: string | null }> {
+    static async checkProviderHealth(): Promise<{ healthy: boolean; error: string | null }> {
         try {
-            const provider = this.getInstance();
-            return await provider.checkHealth();
+            const instance = this.getInstance();
+            return await instance.checkHealth();
         } catch (error: any) {
             return {
                 healthy: false,
@@ -100,34 +104,87 @@ class BackendProviderFactory {
     }
 }
 
-// 🎯 EXPORTS PRINCIPALES - Lo que usarán los demás archivos
-export const backendProvider = BackendProviderFactory.getInstance();
-export const { auth, teams, tournaments, matches, players, referee } = backendProvider;
+// 🎯 EXPORTS PRINCIPALES - Interfaz simplificada para uso en la app
+const provider = BackendProviderFactory.getInstance();
 
-// 🔧 UTILITIES
-export { BackendProviderFactory };
-export type { IBackendProvider };
+export const auth = provider.auth;
+export const teams = provider.teams;
+export const tournaments = provider.tournaments;
+export const matches = provider.matches;
+export const players = provider.players;
+export const referee = provider.referee;
 
-// 📊 HELPERS PARA DEBUGGING Y DESARROLLO
-export const getProviderInfo = () => BackendProviderFactory.getProviderInfo();
-export const checkProviderHealth = () => BackendProviderFactory.checkHealth();
-export const resetProvider = () => BackendProviderFactory.reset();
+// 🔧 UTILITIES - Para debugging y testing
+export const getProviderInfo = BackendProviderFactory.getProviderInfo;
+export const checkProviderHealth = BackendProviderFactory.checkProviderHealth;
+export const resetProvider = BackendProviderFactory.reset;
 
-// 🏗️ DESARROLLO/TESTING - Funciones de utilidad
-if (CONFIG.APP.IS_DEVELOPMENT) {
-    // Exponer factory globalmente para debugging
-    (global as any).__BackendProviderFactory = BackendProviderFactory;
+// 🧪 TESTING - Acceso directo al factory para tests
+export const BackendFactory = BackendProviderFactory;
 
-    // Log información del provider al importar
-    console.log(`🔧 Backend Provider: ${CONFIG.BACKEND.PROVIDER.toUpperCase()}`);
-    console.log(`🌐 Provider Info:`, getProviderInfo());
+// 📊 PROVIDER INSTANCE - Para casos especiales
+export const getProvider = () => BackendProviderFactory.getInstance();
 
-    // Verificar salud en desarrollo
-    checkProviderHealth().then(health => {
+// ⚡ CONFIGURACIÓN - Re-export para conveniencia
+export { CONFIG } from '../config/constants';
+
+// 🎭 TYPES - Re-export de tipos importantes
+export type { IBackendProvider } from './interfaces/IBackendProvider';
+export type { IAuthProvider } from './interfaces/IAuthProvider';
+export type { ITeamsProvider } from './interfaces/ITeamsProvider';
+export type { ITournamentsProvider } from './interfaces/ITournamentsProvider';
+export type { IMatchesProvider } from './interfaces/IMatchesProvider';
+export type { IPlayersProvider } from './interfaces/IPlayersProvider';
+export type { IRefereeProvider } from './interfaces/IRefereeProvider';
+
+// 🎯 EJEMPLO DE USO:
+/*
+// En cualquier componente o hook:
+import { auth, teams, tournaments, matches, players, referee } from '@/lib/providers';
+
+// Usar directamente sin preocuparse del backend:
+const { data: userTeams } = await teams.getAll();
+const { user } = await auth.login(email, password);
+const { data: upcomingMatches } = await matches.getUpcoming();
+
+// Para debugging:
+import { getProviderInfo, checkProviderHealth } from '@/lib/providers';
+console.log(getProviderInfo()); // { name: 'PocketBase', type: 'pocketbase' }
+*/
+
+// 🚀 CONFIGURACIÓN DINÁMICA - Permite cambiar backend en runtime
+export const switchBackend = async (newBackend: 'pocketbase' | 'supabase' | 'firebase') => {
+    // Reset current provider
+    BackendProviderFactory.reset();
+    
+    // Update config (esto requeriría un restart en una app real)
+    console.warn(`Para cambiar a ${newBackend}, actualiza EXPO_PUBLIC_BACKEND_PROVIDER y reinicia la app`);
+};
+
+// 🎨 DESARROLLO - Helpers para desarrollo
+export const developmentHelpers = {
+    getCurrentProvider: () => BackendProviderFactory.getProviderInfo(),
+    testConnection: () => BackendProviderFactory.checkProviderHealth(),
+    resetConnection: () => BackendProviderFactory.reset(),
+    
+    // Mock provider para testing
+    setMockProvider: (mockProvider: IBackendProvider) => {
+        (BackendProviderFactory as any).instance = mockProvider;
+        (BackendProviderFactory as any).providerType = 'mock';
+    }
+};
+
+// 📝 LOGGING - Para debugging en desarrollo
+if (__DEV__) {
+    console.log('🚀 Backend Provider Factory initialized');
+    console.log('📊 Current provider:', BackendProviderFactory.getProviderInfo());
+    
+    // Verificar salud del provider al inicializar
+    BackendProviderFactory.checkProviderHealth().then(health => {
         if (health.healthy) {
-            console.log('✅ Backend Provider conectado correctamente');
+            console.log('✅ Backend provider is healthy');
         } else {
-            console.warn('⚠️ Backend Provider con problemas:', health.error);
+            console.warn('⚠️ Backend provider health check failed:', health.error);
         }
     });
 }

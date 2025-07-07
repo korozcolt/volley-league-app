@@ -1,10 +1,4 @@
-import { Team } from '@/lib/types/models';
-
-export interface TeamFilters {
-  active?: boolean;
-  search?: string;
-  coach?: string;
-}
+import { Team, TeamFilters } from '@/lib/types/models';
 
 export interface ITeamsProvider {
   // CRUD básico
