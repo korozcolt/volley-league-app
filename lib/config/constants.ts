@@ -1,4 +1,4 @@
-// lib/config/constants.ts - Configuración Unificada Completa
+// lib/config/constants.ts - CORRECCIÓN MÍNIMA ESPECÍFICA
 import Constants from 'expo-constants';
 
 // Función helper para obtener variables de entorno
@@ -6,8 +6,8 @@ const getEnvVar = (key: string, defaultValue?: any) => {
   return Constants.expoConfig?.extra?.[key] ?? defaultValue;
 };
 
-// ⭐ CONFIGURACIÓN PRINCIPAL DE BACKEND
-export const BACKEND_CONFIG = {
+// ⭐ CONFIGURACIÓN PRINCIPAL DE BACKEND - Estructura corregida
+const BACKEND_CONFIG = {
   PROVIDER: getEnvVar('backendProvider', 'pocketbase') as 'pocketbase' | 'supabase' | 'firebase',
   get IS_POCKETBASE() {
     return this.PROVIDER === 'pocketbase';
@@ -20,8 +20,8 @@ export const BACKEND_CONFIG = {
   },
 } as const;
 
-// 🗄️ CONFIGURACIÓN DE POCKETBASE
-export const POCKETBASE_CONFIG = {
+// 🗄️ CONFIGURACIÓN DE POCKETBASE - Sin cambios
+const POCKETBASE_CONFIG = {
   URL: getEnvVar('pocketbaseUrl', 'https://back-volley.kronnos.dev'),
   HEALTH_ENDPOINT: getEnvVar('pocketbaseHealthEndpoint', '/health'),
   API_ENDPOINT: getEnvVar('pocketbaseApiEndpoint', '/api/'),
@@ -36,8 +36,8 @@ export const POCKETBASE_CONFIG = {
   }
 } as const;
 
-// 📊 CONFIGURACIÓN DE SUPABASE
-export const SUPABASE_CONFIG = {
+// 📊 CONFIGURACIÓN DE SUPABASE - Sin cambios
+const SUPABASE_CONFIG = {
   URL: getEnvVar('supabaseUrl', ''),
   KEY: getEnvVar('supabaseKey', ''),
   get IS_CONFIGURED() {
@@ -45,8 +45,8 @@ export const SUPABASE_CONFIG = {
   }
 } as const;
 
-// 🔥 CONFIGURACIÓN DE FIREBASE
-export const FIREBASE_CONFIG = {
+// 🔥 CONFIGURACIÓN DE FIREBASE - Sin cambios
+const FIREBASE_CONFIG = {
   PROJECT_ID: getEnvVar('firebaseProjectId', ''),
   API_KEY: getEnvVar('firebaseApiKey', ''),
   AUTH_DOMAIN: getEnvVar('firebaseAuthDomain', ''),
@@ -55,8 +55,8 @@ export const FIREBASE_CONFIG = {
   }
 } as const;
 
-// 📱 CONFIGURACIÓN DE LA APP
-export const APP_CONFIG = {
+// 📱 CONFIGURACIÓN DE LA APP - Sin cambios
+const APP_CONFIG = {
   NAME: getEnvVar('appName', 'Volley League App'),
   VERSION: getEnvVar('appVersion', '1.0.0'),
   ENVIRONMENT: getEnvVar('appEnvironment', 'development'),
@@ -71,8 +71,8 @@ export const APP_CONFIG = {
   },
 } as const;
 
-// 🌐 CONFIGURACIÓN DE API
-export const API_CONFIG = {
+// 🌐 CONFIGURACIÓN DE API - Sin cambios
+const API_CONFIG = {
   TIMEOUT: getEnvVar('apiTimeout', 10000),
   MAX_RETRIES: getEnvVar('maxRetries', 3),
   RETRY_DELAY: getEnvVar('retryDelay', 1000),
@@ -82,8 +82,8 @@ export const API_CONFIG = {
   }
 } as const;
 
-// 💾 CONFIGURACIÓN DE CACHE
-export const CACHE_CONFIG = {
+// 💾 CONFIGURACIÓN DE CACHE - Sin cambios
+const CACHE_CONFIG = {
   TTL: getEnvVar('cacheTtl', 300000), // 5 minutos
   AUTH_TOKEN_KEY: getEnvVar('authTokenKey', 'auth_token'),
   USER_CACHE_KEY: getEnvVar('userCacheKey', 'user_cache'),
@@ -96,8 +96,8 @@ export const CACHE_CONFIG = {
   }
 } as const;
 
-// 📁 CONFIGURACIÓN DE UPLOADS
-export const UPLOAD_CONFIG = {
+// 📁 CONFIGURACIÓN DE UPLOADS - Sin cambios
+const UPLOAD_CONFIG = {
   MAX_FILE_SIZE: getEnvVar('maxFileSize', 2097152), // 2MB
   ALLOWED_IMAGE_TYPES: getEnvVar('allowedImageTypes', ['image/jpeg', 'image/png', 'image/webp']),
   ALLOWED_DOCUMENT_TYPES: getEnvVar('allowedDocumentTypes', ['application/pdf', 'application/msword']),
@@ -110,8 +110,8 @@ export const UPLOAD_CONFIG = {
   }
 } as const;
 
-// 🏐 CONFIGURACIÓN DE VOLEIBOL (Reglas del juego)
-export const VOLLEYBALL_CONFIG = {
+// 🏐 CONFIGURACIÓN DE VOLEIBOL - Sin cambios
+const VOLLEYBALL_CONFIG = {
   DEFAULT_SET_POINTS: getEnvVar('defaultSetPoints', 25),
   DEFAULT_FINAL_SET_POINTS: getEnvVar('defaultFinalSetPoints', 15),
   MIN_POINT_DIFFERENCE: getEnvVar('minPointDifference', 2),
@@ -129,16 +129,16 @@ export const VOLLEYBALL_CONFIG = {
   }
 } as const;
 
-// 🔔 CONFIGURACIÓN DE NOTIFICACIONES
-export const NOTIFICATION_CONFIG = {
+// 🔔 CONFIGURACIÓN DE NOTIFICACIONES - Sin cambios
+const NOTIFICATION_CONFIG = {
   ENABLED: getEnvVar('notificationsEnabled', true),
   MATCH_REMINDER_HOURS: getEnvVar('matchReminderHours', 2),
   SCORE_UPDATE_ENABLED: getEnvVar('scoreUpdateEnabled', true),
   TOURNAMENT_UPDATES_ENABLED: getEnvVar('tournamentUpdatesEnabled', true),
 } as const;
 
-// 🎨 CONFIGURACIÓN DE UI
-export const UI_CONFIG = {
+// 🎨 CONFIGURACIÓN DE UI - Sin cambios
+const UI_CONFIG = {
   ANIMATION_DURATION: getEnvVar('animationDuration', 300),
   REFRESH_THRESHOLD: getEnvVar('refreshThreshold', 80),
   DEBOUNCE_DELAY: getEnvVar('debounceDelay', 300),
@@ -146,8 +146,8 @@ export const UI_CONFIG = {
   MAX_SEARCH_RESULTS: getEnvVar('maxSearchResults', 50),
 } as const;
 
-// 🔐 CONFIGURACIÓN DE SEGURIDAD
-export const SECURITY_CONFIG = {
+// 🔐 CONFIGURACIÓN DE SEGURIDAD - Sin cambios
+const SECURITY_CONFIG = {
   SESSION_TIMEOUT: getEnvVar('sessionTimeout', 86400000), // 24 horas
   PASSWORD_MIN_LENGTH: getEnvVar('passwordMinLength', 8),
   MAX_LOGIN_ATTEMPTS: getEnvVar('maxLoginAttempts', 5),
@@ -160,9 +160,9 @@ export const SECURITY_CONFIG = {
   }
 } as const;
 
-// 📊 CONFIGURACIÓN UNIFICADA (Export principal)
+// 🔧 CAMBIO CRÍTICO: Estructura unificada para que coincida con lib/providers/index.ts
 export const CONFIG = {
-  BACKEND: BACKEND_CONFIG,
+  BACKEND: BACKEND_CONFIG,        // ✅ Ahora CONFIG.BACKEND.PROVIDER funciona
   POCKETBASE: POCKETBASE_CONFIG,
   SUPABASE: SUPABASE_CONFIG,
   FIREBASE: FIREBASE_CONFIG,
@@ -176,40 +176,43 @@ export const CONFIG = {
   SECURITY: SECURITY_CONFIG,
 } as const;
 
-// 🔍 VALIDACIÓN DE CONFIGURACIÓN
+// ✅ EXPORTS DIRECTOS (sin re-declarar)
+export { BACKEND_CONFIG, POCKETBASE_CONFIG, SUPABASE_CONFIG, FIREBASE_CONFIG, APP_CONFIG, API_CONFIG, CACHE_CONFIG, UPLOAD_CONFIG, VOLLEYBALL_CONFIG, NOTIFICATION_CONFIG, UI_CONFIG, SECURITY_CONFIG };
+
+// 🔍 VALIDACIÓN DE CONFIGURACIÓN - Sin cambios
 export const validateConfig = (): { valid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
   // Validar backend principal
-  if (!BACKEND_CONFIG.PROVIDER) {
+  if (!CONFIG.BACKEND.PROVIDER) {
     errors.push('BACKEND_PROVIDER no está configurado');
   }
 
   // Validar configuración específica del backend activo
-  switch (BACKEND_CONFIG.PROVIDER) {
+  switch (CONFIG.BACKEND.PROVIDER) {
     case 'pocketbase':
-      if (!POCKETBASE_CONFIG.IS_CONFIGURED) {
+      if (!CONFIG.POCKETBASE.IS_CONFIGURED) {
         errors.push('PocketBase URL no está configurada');
       }
       break;
     case 'supabase':
-      if (!SUPABASE_CONFIG.IS_CONFIGURED) {
+      if (!CONFIG.SUPABASE.IS_CONFIGURED) {
         errors.push('Supabase URL o KEY no están configuradas');
       }
       break;
     case 'firebase':
-      if (!FIREBASE_CONFIG.IS_CONFIGURED) {
+      if (!CONFIG.FIREBASE.IS_CONFIGURED) {
         errors.push('Firebase PROJECT_ID o API_KEY no están configuradas');
       }
       break;
   }
 
   // Validar configuraciones críticas
-  if (API_CONFIG.TIMEOUT < 1000) {
+  if (CONFIG.API.TIMEOUT < 1000) {
     errors.push('API timeout debe ser al menos 1000ms');
   }
 
-  if (UPLOAD_CONFIG.MAX_FILE_SIZE < 100000) {
+  if (CONFIG.UPLOAD.MAX_FILE_SIZE < 100000) {
     errors.push('Max file size debe ser al menos 100KB');
   }
 
@@ -219,17 +222,17 @@ export const validateConfig = (): { valid: boolean; errors: string[] } => {
   };
 };
 
-// 🎯 HELPERS DE CONFIGURACIÓN
+// 🎯 HELPERS DE CONFIGURACIÓN - Actualizados para usar CONFIG
 export const getBackendConfig = () => {
-  switch (BACKEND_CONFIG.PROVIDER) {
+  switch (CONFIG.BACKEND.PROVIDER) {
     case 'pocketbase':
-      return POCKETBASE_CONFIG;
+      return CONFIG.POCKETBASE;
     case 'supabase':
-      return SUPABASE_CONFIG;
+      return CONFIG.SUPABASE;
     case 'firebase':
-      return FIREBASE_CONFIG;
+      return CONFIG.FIREBASE;
     default:
-      throw new Error(`Backend no soportado: ${BACKEND_CONFIG.PROVIDER}`);
+      throw new Error(`Backend no soportado: ${CONFIG.BACKEND.PROVIDER}`);
   }
 };
 
@@ -238,27 +241,27 @@ export const isBackendConfigured = (): boolean => {
   return (backendConfig as any).IS_CONFIGURED ?? false;
 };
 
-// 🚀 INFORMACIÓN DE CONFIGURACIÓN (Para debugging)
+// 🚀 INFORMACIÓN DE CONFIGURACIÓN - Actualizada
 export const getConfigInfo = () => {
   const validation = validateConfig();
   
   return {
     app: {
-      name: APP_CONFIG.NAME,
-      version: APP_CONFIG.VERSION,
-      environment: APP_CONFIG.ENVIRONMENT
+      name: CONFIG.APP.NAME,
+      version: CONFIG.APP.VERSION,
+      environment: CONFIG.APP.ENVIRONMENT
     },
     backend: {
-      provider: BACKEND_CONFIG.PROVIDER,
+      provider: CONFIG.BACKEND.PROVIDER,
       configured: isBackendConfigured()
     },
     validation,
-    isDevelopment: APP_CONFIG.IS_DEVELOPMENT,
-    isProduction: APP_CONFIG.IS_PRODUCTION
+    isDevelopment: CONFIG.APP.IS_DEVELOPMENT,
+    isProduction: CONFIG.APP.IS_PRODUCTION
   };
 };
 
-// 📝 LOGGING EN DESARROLLO
+// 📝 LOGGING EN DESARROLLO - Sin cambios
 if (__DEV__) {
   const configInfo = getConfigInfo();
   console.log('🔧 App Configuration:', configInfo);

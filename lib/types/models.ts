@@ -73,11 +73,11 @@ export interface User {
 export interface Team {
     id: string;
     name: string;
+    active: boolean;                    // ✅ AGREGADO - Propiedad faltante crítica
     logo_url?: string | null;
     coach_name?: string | null;
     contact_email?: string | null;
     contact_phone?: string | null;
-    active: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -155,7 +155,7 @@ export interface Match {
     home_team?: Team;
     away_team?: Team;
     match_sets?: MatchSet[];
-    match_events?: MatchEvent[];    // ✅ AGREGADO
+    match_events?: MatchEvent[];   
 }
 
 export interface MatchSet {
@@ -164,7 +164,7 @@ export interface MatchSet {
     set_number: number;
     home_team_score: number;
     away_team_score: number;
-    duration_minutes?: number | null; // ✅ AGREGADO
+    duration_minutes?: number | null; 
     created_at: string;
     updated_at: string;
 
@@ -172,7 +172,6 @@ export interface MatchSet {
     match?: Match;
 }
 
-// ✅ NUEVO - MatchEvent que faltaba completamente
 export interface MatchEvent {
     id: string;
     match_id: string;
@@ -195,7 +194,6 @@ export interface MatchEvent {
     recorded_by_user?: User;
 }
 
-// ✅ NUEVO - MatchOfficial para asignación de árbitros
 export interface MatchOfficial {
     id: string;
     match_id: string;
@@ -212,7 +210,6 @@ export interface MatchOfficial {
     scorer_user?: User;
 }
 
-// ✅ NUEVO - TeamLineup para formaciones de equipos
 export interface TeamLineup {
     id: string;
     match_id: string;
@@ -321,32 +318,36 @@ export interface BaseFilters {
     sort_order?: 'asc' | 'desc';
 }
 
-export interface TeamFilters extends BaseFilters {
+export interface TeamFilters {
     active?: boolean;
     coach?: string;
+    search?: string;
 }
 
-export interface TournamentFilters extends BaseFilters {
+export interface TournamentFilters {
     status?: TournamentStatus[];
     type?: TournamentType[];
     date_from?: string;
     date_to?: string;
+    search?: string;
 }
 
-export interface MatchFilters extends BaseFilters {
+export interface MatchFilters {
     tournament_id?: string;
     team_id?: string;
     status?: MatchStatus[];
     date_from?: string;
     date_to?: string;
     referee_id?: string;
+    search?: string;
 }
 
-export interface PlayerFilters extends BaseFilters {
+export interface PlayerFilters {
     team_id?: string;
     active?: boolean;
     position?: PlayerPosition;
     captain?: boolean;
+    search?: string;
 }
 
 // Para respuestas de la API

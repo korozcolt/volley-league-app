@@ -1,10 +1,8 @@
-// lib/providers/index.ts - Factory Principal Actualizado
 import { CONFIG } from '../config/constants';
 import { IBackendProvider } from './interfaces/IBackendProvider';
 import { PocketBaseProvider } from './pocketbase/PocketBaseProvider';
 //import { SupabaseProvider } from './supabase/SupabaseProvider';
 
-// ⭐ SINGLETON PATTERN - Una sola instancia del provider activo
 class BackendProviderFactory {
     private static instance: IBackendProvider | null = null;
     private static providerType: string | null = null;
@@ -34,15 +32,17 @@ class BackendProviderFactory {
                 break;
 
             case 'supabase':
-                if (!CONFIG.SUPABASE.URL || !CONFIG.SUPABASE.KEY) {
-                    throw new Error('Supabase no configurado. Revisa EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_KEY');
-                }
-
-                this.instance = new SupabaseProvider({
-                    url: CONFIG.SUPABASE.URL,
-                    key: CONFIG.SUPABASE.KEY
-                });
-                break;
+                // ✅ TEMPORAL: SupabaseProvider no implementado aún
+                throw new Error('SupabaseProvider no implementado aún. Usa EXPO_PUBLIC_BACKEND_PROVIDER=pocketbase');
+                // TODO: Descomentar cuando SupabaseProvider esté implementado
+                // if (!CONFIG.SUPABASE.URL || !CONFIG.SUPABASE.KEY) {
+                //     throw new Error('Supabase no configurado. Revisa EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_KEY');
+                // }
+                // this.instance = new SupabaseProvider({
+                //     url: CONFIG.SUPABASE.URL,
+                //     key: CONFIG.SUPABASE.KEY
+                // });
+                // break;
 
             case 'firebase':
                 // TODO: Implementar cuando sea necesario
