@@ -76,11 +76,11 @@ export default function TournamentsScreen() {
   };
 
   const navigateToTournamentDetails = (tournamentId: string) => {
-    router.push('/(tabs)/tournaments');
+    router.push(`/tournament/${tournamentId}` as any);
   };
 
   const navigateToCreateTournament = () => {
-    Alert.alert('Crear Torneo', 'Funcionalidad en desarrollo');
+    router.push('/tournament/create' as any);
   };
 
   const renderTournamentItem = ({ item }: { item: Tournament }) => {

@@ -23,10 +23,18 @@ export enum MatchStatus {
 
 export enum UserRole {
     ADMIN = 'admin',
+    TEAM_MANAGER = 'team_manager',
     REFEREE = 'referee',
     COACH = 'coach',
     PLAYER = 'player',
     VIEWER = 'viewer',
+}
+
+export enum RegistrationStatus {
+    PENDING = 'pending',     // Esperando aprobación
+    APPROVED = 'approved',   // Aprobada
+    REJECTED = 'rejected',   // Rechazada
+    CANCELLED = 'cancelled', // Cancelada por el equipo
 }
 
 export enum PlayerPosition {
@@ -66,11 +74,14 @@ export interface Team {
     name: string;
     active: boolean;
     logo_url?: string | null;
+    manager_id?: string | null;
     coach_name?: string | null;
     contact_email?: string | null;
     contact_phone?: string | null;
+    verified: boolean;
     created_at: string;
     updated_at: string;
+    manager?: User;
 }
 
 export interface Player {
@@ -101,9 +112,43 @@ export interface Tournament {
     description?: string | null;
     type: TournamentType;
     status: TournamentStatus;
-    teams_to_qualify?: number | null;
+
+    min_teams: number; // Mínimo de equipos requeridos
+    max_teams: number; // Máximo de equipos permitidos
+    min_players_per_team: number; // Mínimo de jugadores por equipo
+    max_players_per_team: number; // Máximo de jugadores por equipo
+
+    registration_start_date?: string | null; // Cuándo abre la inscripción
+    registration_end_date?: string | null;   // Cuándo cierra la inscripción
+
+    teams_to_qualify?: number | null; // Cuántos equipos clasifican (opcional)
+
+    allow_public_registration: boolean; // Si equipos pueden auto-inscribirse
+    require_approval: boolean; // Si inscripciones requieren aprobación
+
     created_at: string;
     updated_at: string;
+    created_by?: string; // ID del usuario que creó el torneo
+}
+
+export interface TournamentRegistration {
+    id: string;
+    tournament_id: string;
+    team_id: string;
+    registered_by: string; // ID del team manager que inscribió
+    registration_date: string;
+    status: RegistrationStatus;
+    approval_date?: string | null;
+    approved_by?: string | null; // ID del admin que aprobó
+    rejection_reason?: string | null;
+    created_at: string;
+    updated_at: string;
+
+    // Relaciones
+    tournament?: Tournament;
+    team?: Team;
+    registered_by_user?: User;
+    approved_by_user?: User;
 }
 
 export interface TournamentTeam {
@@ -221,6 +266,14 @@ export interface TeamLineup {
     created_by_user?: User;
 }
 
+export interface TeamManagerPermissions {
+    can_edit_team_info: boolean;
+    can_manage_players: boolean;
+    can_register_tournaments: boolean;
+    can_view_team_stats: boolean;
+    can_upload_documents: boolean;
+}
+
 export interface PlayerMatchStats {
     id: string;
     match_id: string;
@@ -304,6 +357,9 @@ export interface TournamentFilters {
     date_from?: string;
     date_to?: string;
     search?: string;
+    registration_open?: boolean; // Solo torneos con inscripción abierta
+    has_space?: boolean; // Solo torneos que aún tienen cupos
+    managed_by_user?: string; // Torneos donde el usuario tiene equipos inscritos
 }
 
 export interface MatchFilters {
@@ -372,12 +428,19 @@ export interface PlayerStats {
 
 export interface TournamentStats {
     total_teams: number;
+    registered_teams: number;
+    pending_registrations: number;
+    approved_registrations: number;
+    rejected_registrations: number;
     total_matches: number;
     completed_matches: number;
     remaining_matches: number;
-    total_sets: number;
-    total_points: number;
-    average_match_duration: number;
+    min_teams: number;
+    max_teams: number;
+    spaces_available: number;
+    registration_open: boolean;
+    registration_deadline?: string | null;
+    tournament_start: string;
     top_scorer?: Player;
     most_blocks?: Player;
     most_aces?: Player;
@@ -469,6 +532,67 @@ export const isTournamentActive = (tournament: Tournament): boolean => {
 
 export const isTournamentCompleted = (tournament: Tournament): boolean => {
     return tournament.status === TournamentStatus.COMPLETED;
+};
+
+export const isTournamentRegistrationOpen = (tournament: Tournament): boolean => {
+    const now = new Date();
+    const registrationStart = tournament.registration_start_date
+        ? new Date(tournament.registration_start_date)
+        : null;
+    const registrationEnd = tournament.registration_end_date
+        ? new Date(tournament.registration_end_date)
+        : null;
+
+    // Si no hay fechas de inscripción, está abierto si el torneo no ha empezado
+    if (!registrationStart && !registrationEnd) {
+        return new Date(tournament.start_date) > now;
+    }
+
+    // Verificar ventana de inscripción
+    const afterStart = !registrationStart || now >= registrationStart;
+    const beforeEnd = !registrationEnd || now <= registrationEnd;
+
+    return afterStart && beforeEnd;
+};
+
+export const getTournamentAvailableSpaces = (
+    tournament: Tournament,
+    registeredCount: number
+): number => {
+    return Math.max(0, tournament.max_teams - registeredCount);
+};
+
+export const canTeamRegister = (
+    tournament: Tournament,
+    registeredCount: number,
+    teamPlayersCount: number
+): { canRegister: boolean; reason?: string } => {
+    // Verificar si la inscripción está abierta
+    if (!isTournamentRegistrationOpen(tournament)) {
+        return { canRegister: false, reason: 'La inscripción está cerrada' };
+    }
+
+    // Verificar cupos disponibles
+    if (registeredCount >= tournament.max_teams) {
+        return { canRegister: false, reason: 'No hay cupos disponibles' };
+    }
+
+    // Verificar cantidad de jugadores
+    if (teamPlayersCount < tournament.min_players_per_team) {
+        return {
+            canRegister: false,
+            reason: `El equipo debe tener al menos ${tournament.min_players_per_team} jugadores`
+        };
+    }
+
+    if (teamPlayersCount > tournament.max_players_per_team) {
+        return {
+            canRegister: false,
+            reason: `El equipo no puede tener más de ${tournament.max_players_per_team} jugadores`
+        };
+    }
+
+    return { canRegister: true };
 };
 
 export const VOLLEYBALL_CONSTANTS = {

@@ -279,8 +279,6 @@ export default function HomeScreen() {
               )}
             </View>
 
-            {/* ⚡ ACCIONES RÁPIDAS (Solo para admins) */}
-            {/* ✅ CORREGIDO - Llamar la función isAdmin() */}
             {isAdmin() && (
               <View className="mb-6">
                 <Text className={`text-xl font-bold mb-4 ${textColor}`}>
