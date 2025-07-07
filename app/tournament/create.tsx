@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { TournamentTypeSelector } from '@/components/ui/TournamentTypeSelector';
 import { router } from 'expo-router';
 import { tournaments } from '@/lib/providers';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -174,6 +175,12 @@ export default function CreateTournamentScreen() {
                         />
                     </View>
 
+                    <TournamentTypeSelector
+                        label="Tipo de Torneo"
+                        value={formData.type}
+                        onChange={(type) => setFormData(prev => ({ ...prev, type }))}
+                        required
+                    />
                     {/* Fecha de inicio - CON DATEPICKER */}
                     <DatePicker
                         label="Fecha de Inicio"
