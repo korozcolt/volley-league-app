@@ -4,7 +4,7 @@ import PocketBase from 'pocketbase';
 import { User } from '@/lib/types/models';
 
 export class PocketBaseAuthProvider implements IAuthProvider {
-  constructor(private pb: PocketBase) {}
+  constructor(private pb: PocketBase) { }
 
   /**
    * Inicializar autenticación
@@ -25,7 +25,7 @@ export class PocketBaseAuthProvider implements IAuthProvider {
   async login(email: string, password: string): Promise<{ user: User | null; error: string | null }> {
     try {
       const authData = await this.pb.collection('users').authWithPassword(email, password);
-      
+
       if (!authData.record) {
         return { user: null, error: 'Error de autenticación' };
       }
@@ -34,9 +34,9 @@ export class PocketBaseAuthProvider implements IAuthProvider {
       return { user, error: null };
     } catch (error: any) {
       console.error('Error en login:', error);
-      return { 
-        user: null, 
-        error: this.parsePocketBaseError(error) 
+      return {
+        user: null,
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -45,9 +45,9 @@ export class PocketBaseAuthProvider implements IAuthProvider {
    * Registro de nuevo usuario
    */
   async register(
-    email: string, 
-    password: string, 
-    fullName: string, 
+    email: string,
+    password: string,
+    fullName: string,
     role: string = 'viewer'
   ): Promise<{ user: User | null; error: string | null }> {
     try {
@@ -61,15 +61,15 @@ export class PocketBaseAuthProvider implements IAuthProvider {
       };
 
       const newUser = await this.pb.collection('users').create(userData);
-      
+
       // Hacer login automático después del registro
       const loginResult = await this.login(email, password);
       return loginResult;
     } catch (error: any) {
       console.error('Error en registro:', error);
-      return { 
-        user: null, 
-        error: this.parsePocketBaseError(error) 
+      return {
+        user: null,
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -94,7 +94,7 @@ export class PocketBaseAuthProvider implements IAuthProvider {
     try {
       const model = this.pb.authStore.model;
       if (!model) return null;
-      
+
       return this.mapPocketBaseUserToUser(model);
     } catch (error) {
       console.error('Error obteniendo usuario actual:', error);
@@ -162,20 +162,20 @@ export class PocketBaseAuthProvider implements IAuthProvider {
       }
 
       const updateData: any = {};
-      
+
       if (data.full_name) updateData.full_name = data.full_name;
       if (data.email) updateData.email = data.email;
       if (data.role && this.isAdmin()) updateData.role = data.role; // Solo admin puede cambiar roles
 
       const updatedUser = await this.pb.collection('users').update(userId, updateData);
-      
+
       const user = this.mapPocketBaseUserToUser(updatedUser);
       return { user, error: null };
     } catch (error: any) {
       console.error('Error actualizando perfil:', error);
-      return { 
-        user: null, 
-        error: this.parsePocketBaseError(error) 
+      return {
+        user: null,
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -226,16 +226,16 @@ export class PocketBaseAuthProvider implements IAuthProvider {
 
       // Refrescar token si es necesario
       await this.pb.collection('users').authRefresh();
-      
+
       const user = this.getCurrentUser();
       return { user, error: null };
     } catch (error: any) {
       console.error('Error refrescando autenticación:', error);
       // Si falla el refresh, limpiar la sesión
       this.pb.authStore.clear();
-      return { 
-        user: null, 
-        error: 'Sesión expirada, por favor inicia sesión nuevamente' 
+      return {
+        user: null,
+        error: 'Sesión expirada, por favor inicia sesión nuevamente'
       };
     }
   }
@@ -263,19 +263,19 @@ export class PocketBaseAuthProvider implements IAuthProvider {
     if (error.response?.data?.message) {
       return error.response.data.message;
     }
-    
+
     if (error.message?.includes('Failed to authenticate')) {
       return 'Email o contraseña incorrectos';
     }
-    
+
     if (error.message?.includes('email')) {
       return 'Email ya está en uso o es inválido';
     }
-    
+
     if (error.message?.includes('password')) {
       return 'La contraseña debe tener al menos 8 caracteres';
     }
-    
+
     return error.message || 'Error desconocido';
   }
 }

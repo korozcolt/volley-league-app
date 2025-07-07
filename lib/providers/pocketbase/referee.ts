@@ -5,7 +5,7 @@ import { IRefereeProvider } from '../interfaces/IRefereeProvider';
 import PocketBase from 'pocketbase';
 
 export class PocketBaseRefereeProvider implements IRefereeProvider {
-  constructor(private pb: PocketBase) {}
+  constructor(private pb: PocketBase) { }
 
   /**
    * Asignar árbitro principal a un partido
@@ -109,9 +109,9 @@ export class PocketBaseRefereeProvider implements IRefereeProvider {
       return { data: mappedEvent, error: null };
     } catch (error: any) {
       console.error('Error registrando evento:', error);
-      return { 
-        data: null, 
-        error: this.parsePocketBaseError(error) 
+      return {
+        data: null,
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -220,10 +220,10 @@ export class PocketBaseRefereeProvider implements IRefereeProvider {
    * Registrar sustitución
    */
   async recordSubstitution(
-    matchId: string, 
-    setNumber: number, 
-    teamId: string, 
-    playerInId: string, 
+    matchId: string,
+    setNumber: number,
+    teamId: string,
+    playerInId: string,
     playerOutId: string
   ): Promise<{ error: string | null }> {
     try {
@@ -263,10 +263,10 @@ export class PocketBaseRefereeProvider implements IRefereeProvider {
    * Registrar tarjeta (amonestación)
    */
   async recordCard(
-    matchId: string, 
-    setNumber: number, 
-    teamId: string, 
-    playerId: string | null, 
+    matchId: string,
+    setNumber: number,
+    teamId: string,
+    playerId: string | null,
     cardType: 'yellow' | 'red',
     reason?: string
   ): Promise<{ error: string | null }> {
@@ -318,9 +318,9 @@ export class PocketBaseRefereeProvider implements IRefereeProvider {
       return { data: mappedEvents, error: null };
     } catch (error: any) {
       console.error('Error obteniendo eventos del partido:', error);
-      return { 
-        data: [], 
-        error: this.parsePocketBaseError(error) 
+      return {
+        data: [],
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -353,9 +353,9 @@ export class PocketBaseRefereeProvider implements IRefereeProvider {
       return { data: matches, error: null };
     } catch (error: any) {
       console.error('Error obteniendo partidos asignados:', error);
-      return { 
-        data: [], 
-        error: this.parsePocketBaseError(error) 
+      return {
+        data: [],
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -392,9 +392,9 @@ export class PocketBaseRefereeProvider implements IRefereeProvider {
       return { canReferee: true, error: null };
     } catch (error: any) {
       console.error('Error validando permisos de arbitraje:', error);
-      return { 
-        canReferee: false, 
-        error: this.parsePocketBaseError(error) 
+      return {
+        canReferee: false,
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -444,26 +444,23 @@ export class PocketBaseRefereeProvider implements IRefereeProvider {
     };
   }
 
+
   /**
-   * Parsear errores de PocketBase a mensajes amigables
+   * Parsear errores de PocketBase (método faltante)
    */
   private parsePocketBaseError(error: any): string {
     if (error.response?.data?.message) {
       return error.response.data.message;
     }
-    
-    if (error.message?.includes('Not found')) {
-      return 'Recurso no encontrado';
+
+    if (error.status === 404) {
+      return 'Partido no encontrado';
     }
-    
-    if (error.message?.includes('referee')) {
-      return 'Error relacionado con árbitro';
+
+    if (error.status === 403) {
+      return 'No tienes permisos para esta operación';
     }
-    
-    if (error.message?.includes('match')) {
-      return 'Error relacionado con el partido';
-    }
-    
-    return error.message || 'Error desconocido';
+
+    return error.message || 'Error en el servidor';
   }
 }

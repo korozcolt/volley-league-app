@@ -1,6 +1,6 @@
 export enum TournamentType {
     POINTS = 'points',
-    ELIMINATION = 'elimination', 
+    ELIMINATION = 'elimination',
     MIXED = 'mixed',
 }
 
@@ -23,8 +23,8 @@ export enum MatchStatus {
 
 export enum UserRole {
     ADMIN = 'admin',
-    REFEREE = 'referee', 
-    COACH = 'coach', 
+    REFEREE = 'referee',
+    COACH = 'coach',
     PLAYER = 'player',
     VIEWER = 'viewer',
 }
@@ -89,7 +89,7 @@ export interface Player {
     updated_at: string;
 
     team?: Team;
-    user?: User; 
+    user?: User;
 }
 
 export interface Tournament {
@@ -141,7 +141,7 @@ export interface Match {
     home_team?: Team;
     away_team?: Team;
     match_sets?: MatchSet[];
-    match_events?: MatchEvent[];   
+    match_events?: MatchEvent[];
 }
 
 export interface MatchSet {
@@ -150,7 +150,7 @@ export interface MatchSet {
     set_number: number;
     home_team_score: number;
     away_team_score: number;
-    duration_minutes?: number | null; 
+    duration_minutes?: number | null;
     created_at: string;
     updated_at: string;
 
@@ -232,12 +232,12 @@ export interface PlayerMatchStats {
     aces: number;
     service_errors: number;
     attack_errors: number;
-    attacks_total: number;      
-    attacks_successful: number; 
-    receptions_total: number;   
-    receptions_perfect: number; 
-    sets_played: number;        
-    minutes_played: number;     
+    attacks_total: number;
+    attacks_successful: number;
+    receptions_total: number;
+    receptions_perfect: number;
+    sets_played: number;
+    minutes_played: number;
     created_at: string;
     updated_at: string;
 
@@ -387,15 +387,15 @@ export interface MatchEventDetails {
     point_type?: 'attack' | 'block' | 'serve' | 'opponent_error';
     attack_zone?: string;
     block_type?: 'single' | 'double' | 'triple';
-    
+
     player_in?: string;
     player_out?: string;
-    
+
     card_type?: CardType;
     reason?: string;
-    
+
     timeout_type?: 'technical' | 'team';
-    
+
     notes?: string;
 }
 
@@ -463,8 +463,12 @@ export const isMatchCompleted = (match: Match): boolean => {
 };
 
 export const isTournamentActive = (tournament: Tournament): boolean => {
-    return tournament.status === TournamentStatus.IN_PROGRESS || 
-           tournament.status === TournamentStatus.UPCOMING;
+    return tournament.status === TournamentStatus.IN_PROGRESS ||
+        tournament.status === TournamentStatus.UPCOMING;
+};
+
+export const isTournamentCompleted = (tournament: Tournament): boolean => {
+    return tournament.status === TournamentStatus.COMPLETED;
 };
 
 export const VOLLEYBALL_CONSTANTS = {

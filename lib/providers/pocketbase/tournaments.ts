@@ -13,8 +13,8 @@ import {
 import PocketBase from 'pocketbase';
 
 export class PocketBaseTournamentsProvider implements ITournamentsProvider {
-  constructor(private pb: PocketBase) {}
-  
+  constructor(private pb: PocketBase) { }
+
   /**
    * Buscar torneos por query
    */
@@ -26,13 +26,12 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
    * Obtener torneos por estado específico
    */
   async getByStatus(status: string): Promise<{ data: Tournament[]; error: string | null }> {
-    // Validar que el status sea válido
-    const validStatuses = ['upcoming', 'in_progress', 'completed'];
-    if (!validStatuses.includes(status.toLowerCase())) {
+    const validStatuses = Object.values(TournamentStatus);
+    if (!validStatuses.includes(status as TournamentStatus)) {
       return { data: [], error: `Estado de torneo inválido: ${status}` };
     }
-    
-    return this.getAll({ status: [status as any] });
+
+    return this.getAll({ status: [status as TournamentStatus] });
   }
 
   /**
@@ -67,10 +66,10 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
         matches_in_progress: matches.filter((match: any) => match.status === 'in_progress').length,
         start_date: tournament.data.start_date,
         end_date: tournament.data.end_date,
-        duration_days: tournament.data.end_date 
+        duration_days: tournament.data.end_date
           ? Math.ceil((new Date(tournament.data.end_date).getTime() - new Date(tournament.data.start_date).getTime()) / (1000 * 60 * 60 * 24))
           : null,
-        completion_percentage: matches.length > 0 
+        completion_percentage: matches.length > 0
           ? Math.round((matches.filter((match: any) => match.status === 'completed').length / matches.length) * 100)
           : 0
       };
@@ -78,9 +77,9 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
       return { data: stats, error: null };
     } catch (error: any) {
       console.error('Error obteniendo estadísticas del torneo:', error);
-      return { 
-        data: null, 
-        error: this.parsePocketBaseError(error) 
+      return {
+        data: null,
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -146,9 +145,9 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
       return { data: tournaments, error: null };
     } catch (error: any) {
       console.error('Error obteniendo torneos:', error);
-      return { 
-        data: [], 
-        error: this.parsePocketBaseError(error) 
+      return {
+        data: [],
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -179,9 +178,9 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
       return { data: tournament, error: null };
     } catch (error: any) {
       console.error('Error obteniendo torneo por ID:', error);
-      return { 
-        data: null, 
-        error: this.parsePocketBaseError(error) 
+      return {
+        data: null,
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -222,9 +221,9 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
       return { data: tournament, error: null };
     } catch (error: any) {
       console.error('Error creando torneo:', error);
-      return { 
-        data: null, 
-        error: this.parsePocketBaseError(error) 
+      return {
+        data: null,
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -264,9 +263,9 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
       return { data: tournament, error: null };
     } catch (error: any) {
       console.error('Error actualizando torneo:', error);
-      return { 
-        data: null, 
-        error: this.parsePocketBaseError(error) 
+      return {
+        data: null,
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -347,7 +346,7 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
           id: teamRecord.id,
           name: teamRecord.name,
           active: teamRecord.active ?? true, // ✅ PROPIEDAD AGREGADA
-          logo_url: teamRecord.logo ? 
+          logo_url: teamRecord.logo ?
             this.pb.files.getUrl(teamRecord, teamRecord.logo) : null,
           coach_name: teamRecord.coach_name || null,
           contact_email: teamRecord.contact_email || null,
@@ -360,9 +359,9 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
       return { data: teams, error: null };
     } catch (error: any) {
       console.error('Error obteniendo equipos del torneo:', error);
-      return { 
-        data: [], 
-        error: this.parsePocketBaseError(error) 
+      return {
+        data: [],
+        error: this.parsePocketBaseError(error)
       };
     }
   }
@@ -439,20 +438,20 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
   private parsePocketBaseError(error: any): string {
     if (error.response?.data) {
       const data = error.response.data;
-      
+
       // Errores de validación específicos
       if (data.name) {
         return 'El nombre del torneo ya existe o no es válido';
       }
-      
+
       if (data.start_date) {
         return 'La fecha de inicio no es válida';
       }
-      
+
       if (data.end_date) {
         return 'La fecha de fin debe ser posterior a la fecha de inicio';
       }
-      
+
       if (data.message) {
         return data.message;
       }

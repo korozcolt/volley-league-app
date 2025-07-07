@@ -25,24 +25,21 @@ export default function TournamentsScreen() {
     try {
       setLoading(true);
       setError(null);
-      
-      // 🎯 Usar provider agnóstico - funciona con cualquier backend
+
       const { data, error: fetchError } = await tournaments.getAll({
-        // Opcional: filtros específicos
-        // status: ['upcoming', 'in_progress'],
-        // search: ''
+        // ✅ Usar enums si necesitas filtros específicos
+        status: [TournamentStatus.UPCOMING, TournamentStatus.IN_PROGRESS],
       });
 
       if (fetchError) {
         throw new Error(fetchError);
       }
 
-      setTournamentsList(data);
+      setTournamentsList(data || []); // ✅ Fallback a array vacío
     } catch (error) {
       console.error('Error al cargar torneos:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       setError(errorMessage);
-      Alert.alert('Error', `No se pudieron cargar los torneos: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -88,8 +85,8 @@ export default function TournamentsScreen() {
 
   const renderTournamentItem = ({ item }: { item: Tournament }) => {
     const startDate = new Date(item.start_date).toLocaleDateString();
-    const endDate = item.end_date 
-      ? new Date(item.end_date).toLocaleDateString() 
+    const endDate = item.end_date
+      ? new Date(item.end_date).toLocaleDateString()
       : 'Por determinar';
 
     return (
@@ -154,7 +151,7 @@ export default function TournamentsScreen() {
         Los torneos aparecerán aquí cuando se creen
       </ThemedText>
       {isAdmin() && (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.createButton, styles.emptyStateButton]}
           onPress={navigateToCreateTournament}
         >
@@ -170,7 +167,7 @@ export default function TournamentsScreen() {
       <ThemedView style={styles.header}>
         <ThemedText type="title">Torneos</ThemedText>
         {isAdmin() && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.createButton}
             onPress={navigateToCreateTournament}
           >
@@ -258,7 +255,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
   },
-  
+
   // 🎯 ESTADÍSTICAS
   statsContainer: {
     flexDirection: 'row',

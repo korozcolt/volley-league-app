@@ -1,7 +1,7 @@
+import { Tournament, TournamentStatus } from '../types/models';
 // lib/hooks/useTournaments.ts - Hook agnóstico para gestión de torneos
 import { useCallback, useEffect, useState } from 'react';
 
-import { Tournament } from '../types/models';
 import { TournamentFilters } from '../providers/interfaces/ITournamentsProvider';
 import { tournaments } from '../providers';
 
@@ -322,6 +322,10 @@ export function useTournaments(options: UseTournamentsOptions = {}): UseTourname
         }
     }, []);
 
+    const getTournamentById = useCallback((id: string): Tournament | undefined => {
+        return tournamentsList.find(tournament => tournament.id === id);
+    }, [tournamentsList]);
+
     /**
      * Refrescar datos (para pull-to-refresh)
      */
@@ -364,7 +368,7 @@ export function useTournaments(options: UseTournamentsOptions = {}): UseTourname
         getTournamentTeams,
 
         // Utilities
-        getTournamentById,
+        getTournamentById,  // ✅ AGREGADO
         refresh,
         clearError,
     };
@@ -377,10 +381,13 @@ export function useTournaments(options: UseTournamentsOptions = {}): UseTourname
  */
 export function useActiveTournaments() {
     return useTournaments({
-        filters: { status: ['in_progress', 'upcoming'] },
+        filters: { 
+            status: [TournamentStatus.IN_PROGRESS, TournamentStatus.UPCOMING]
+        },
         autoFetch: true,
     });
 }
+
 
 /**
  * Hook para búsqueda de torneos en tiempo real
