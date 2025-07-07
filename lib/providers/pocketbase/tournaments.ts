@@ -15,7 +15,75 @@ import PocketBase from 'pocketbase';
 export class PocketBaseTournamentsProvider implements ITournamentsProvider {
   constructor(private pb: PocketBase) {}
   
-  // ✅ CRUD BÁSICO - Según ITournamentsProvider
+  /**
+   * Buscar torneos por query
+   */
+  async search(query: string): Promise<{ data: Tournament[]; error: string | null }> {
+    return this.getAll({ search: query });
+  }
+
+  /**
+   * Obtener torneos por estado específico
+   */
+  async getByStatus(status: string): Promise<{ data: Tournament[]; error: string | null }> {
+    // Validar que el status sea válido
+    const validStatuses = ['upcoming', 'in_progress', 'completed'];
+    if (!validStatuses.includes(status.toLowerCase())) {
+      return { data: [], error: `Estado de torneo inválido: ${status}` };
+    }
+    
+    return this.getAll({ status: [status as any] });
+  }
+
+  /**
+   * Obtener estadísticas del torneo
+   */
+  async getStats(id: string): Promise<{ data: any | null; error: string | null }> {
+    try {
+      // Obtener torneo
+      const tournament = await this.getById(id);
+      if (tournament.error || !tournament.data) {
+        return { data: null, error: tournament.error };
+      }
+
+      // Obtener equipos del torneo
+      const teamsInTournament = await this.pb.collection('tournament_teams').getFullList({
+        filter: `tournament = "${id}"`,
+        expand: 'team',
+      });
+
+      // Obtener partidos del torneo
+      const matches = await this.pb.collection('matches').getFullList({
+        filter: `tournament = "${id}"`,
+        expand: 'home_team,away_team',
+      });
+
+      // Calcular estadísticas
+      const stats = {
+        teams_count: teamsInTournament.length,
+        matches_total: matches.length,
+        matches_completed: matches.filter((match: any) => match.status === 'completed').length,
+        matches_pending: matches.filter((match: any) => match.status === 'scheduled').length,
+        matches_in_progress: matches.filter((match: any) => match.status === 'in_progress').length,
+        start_date: tournament.data.start_date,
+        end_date: tournament.data.end_date,
+        duration_days: tournament.data.end_date 
+          ? Math.ceil((new Date(tournament.data.end_date).getTime() - new Date(tournament.data.start_date).getTime()) / (1000 * 60 * 60 * 24))
+          : null,
+        completion_percentage: matches.length > 0 
+          ? Math.round((matches.filter((match: any) => match.status === 'completed').length / matches.length) * 100)
+          : 0
+      };
+
+      return { data: stats, error: null };
+    } catch (error: any) {
+      console.error('Error obteniendo estadísticas del torneo:', error);
+      return { 
+        data: null, 
+        error: this.parsePocketBaseError(error) 
+      };
+    }
+  }
 
   /**
    * Obtener todos los torneos con filtros opcionales
@@ -213,77 +281,6 @@ export class PocketBaseTournamentsProvider implements ITournamentsProvider {
     } catch (error: any) {
       console.error('Error eliminando torneo:', error);
       return { error: this.parsePocketBaseError(error) };
-    }
-  }
-
-  // ✅ FUNCIONES ESPECÍFICAS - Según ITournamentsProvider
-
-  /**
-   * Buscar torneos por query
-   */
-  async search(query: string): Promise<{ data: Tournament[]; error: string | null }> {
-    return this.getAll({ search: query });
-  }
-
-  /**
-   * Obtener torneos por estado específico
-   */
-  async getByStatus(status: string): Promise<{ data: Tournament[]; error: string | null }> {
-    // Validar que el status sea válido
-    if (!Object.values(TournamentStatus).includes(status as TournamentStatus)) {
-      return { data: [], error: `Estado de torneo inválido: ${status}` };
-    }
-    
-    return this.getAll({ status: [status as TournamentStatus] });
-  }
-
-  /**
-   * Obtener estadísticas del torneo
-   */
-  async getStats(id: string): Promise<{ data: any | null; error: string | null }> {
-    try {
-      // Obtener torneo
-      const tournament = await this.getById(id);
-      if (tournament.error || !tournament.data) {
-        return { data: null, error: tournament.error };
-      }
-
-      // Obtener equipos del torneo
-      const teamsInTournament = await this.pb.collection('tournament_teams').getFullList({
-        filter: `tournament = "${id}"`,
-        expand: 'team',
-      });
-
-      // Obtener partidos del torneo
-      const matches = await this.pb.collection('matches').getFullList({
-        filter: `tournament = "${id}"`,
-        expand: 'home_team,away_team',
-      });
-
-      // Calcular estadísticas
-      const stats = {
-        teams_count: teamsInTournament.length,
-        matches_total: matches.length,
-        matches_completed: matches.filter((match: any) => match.status === 'completed').length,
-        matches_pending: matches.filter((match: any) => match.status === 'scheduled').length,
-        matches_in_progress: matches.filter((match: any) => match.status === 'in_progress').length,
-        start_date: tournament.data.start_date,
-        end_date: tournament.data.end_date,
-        duration_days: tournament.data.end_date 
-          ? Math.ceil((new Date(tournament.data.end_date).getTime() - new Date(tournament.data.start_date).getTime()) / (1000 * 60 * 60 * 24))
-          : null,
-        completion_percentage: matches.length > 0 
-          ? Math.round((matches.filter((match: any) => match.status === 'completed').length / matches.length) * 100)
-          : 0
-      };
-
-      return { data: stats, error: null };
-    } catch (error: any) {
-      console.error('Error obteniendo estadísticas del torneo:', error);
-      return { 
-        data: null, 
-        error: this.parsePocketBaseError(error) 
-      };
     }
   }
 
