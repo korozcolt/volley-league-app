@@ -1,8 +1,7 @@
-// lib/hooks/useAuth.ts - Actualizado para usar Provider Pattern
 import { useEffect, useState } from 'react';
 
 import { User } from '../types/models';
-import { auth } from '../providers'; // 🎯 Ahora usa el provider factory
+import { auth } from '../providers';
 
 type AuthUser = {
     id: string;
