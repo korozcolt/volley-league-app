@@ -1,6 +1,6 @@
+import { User, UserRole } from '../types/models';
 import { useEffect, useState } from 'react';
 
-import { User } from '../types/models';
 import { auth } from '../providers';
 
 type AuthUser = {
@@ -16,6 +16,12 @@ type AuthResponse = {
     signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
     signOut: () => Promise<{ error: Error | null }>;
     isAdmin: () => boolean;
+    // ✅ AGREGAR FUNCIONES FALTANTES
+    hasRole: (role: UserRole) => boolean;
+    isReferee: () => boolean;
+    isCoach: () => boolean;
+    isPlayer: () => boolean;
+    isViewer: () => boolean;
     updateProfile: (data: Partial<User>) => Promise<{ error: Error | null }>;
     changePassword: (oldPassword: string, newPassword: string) => Promise<{ error: Error | null }>;
     refreshAuth: () => Promise<void>;
@@ -131,11 +137,28 @@ export function useAuth(): AuthResponse {
         }
     };
 
-    /**
-     * Verificar si el usuario es administrador
-     */
     const isAdmin = (): boolean => {
         return auth.isAdmin();
+    };
+
+    const hasRole = (role: UserRole): boolean => {
+        return auth.hasRole(role);
+    };
+
+    const isReferee = (): boolean => {
+        return auth.isReferee();
+    };
+
+    const isCoach = (): boolean => {
+        return auth.isCoach();
+    };
+
+    const isPlayer = (): boolean => {
+        return auth.isPlayer();
+    };
+
+    const isViewer = (): boolean => {
+        return auth.isViewer();
     };
 
     /**
@@ -217,7 +240,7 @@ export function useAuth(): AuthResponse {
         }
     };
 
-    // 🎯 RETORNO DEL HOOK - Mantiene la misma interfaz
+    // 🎯 RETORNO DEL HOOK - Con todas las funciones necesarias
     return { 
         user, 
         userDetails, 
@@ -226,16 +249,21 @@ export function useAuth(): AuthResponse {
         signUp, 
         signOut, 
         isAdmin,
+        hasRole,        // ✅ AGREGADO
+        isReferee,      // ✅ AGREGADO
+        isCoach,        // ✅ AGREGADO
+        isPlayer,       // ✅ AGREGADO
+        isViewer,       // ✅ AGREGADO
         updateProfile,
         changePassword,
         refreshAuth
     };
 }
 
-// 🔧 HOOKS ADICIONALES PARA FUNCIONALIDADES ESPECÍFICAS
+// 🔧 HOOKS ADICIONALES CORREGIDOS
 
 /**
- * Hook para verificar roles específicos
+ * ✅ Hook para verificar roles específicos - CORREGIDO
  */
 export function useRole() {
     return {
@@ -244,7 +272,7 @@ export function useRole() {
         isCoach: () => auth.isCoach(),
         isPlayer: () => auth.isPlayer(),
         isViewer: () => auth.isViewer(),
-        hasRole: (role: string) => auth.hasRole(role),
+        hasRole: (role: UserRole) => auth.hasRole(role), // ✅ TIPO CORREGIDO
     };
 }
 

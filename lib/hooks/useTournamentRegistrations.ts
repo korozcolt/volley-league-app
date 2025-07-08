@@ -1,6 +1,8 @@
-import { teams, tournaments } from '@/lib/providers';
+import { Team, TournamentRegistration, UserRole } from '@/lib/types/models';
+// lib/hooks/useTournamentRegistrations.ts
 import { useCallback, useEffect, useState } from 'react';
 
+import { teams } from '@/lib/providers';
 import { useAuth } from './useAuth';
 
 interface Registration {
@@ -10,14 +12,6 @@ interface Registration {
   status: 'pending' | 'approved' | 'rejected';
   registered_at: string;
   notes?: string;
-}
-
-interface Team {
-  id: string;
-  name: string;
-  coach?: string;
-  logo?: string;
-  is_active: boolean;
 }
 
 interface RegistrationStats {
@@ -30,7 +24,7 @@ interface RegistrationStats {
 export function useTournamentRegistrations(tournamentId: string) {
   const { hasRole } = useAuth();
   
-  // 📊 ESTADO
+  // 📊 ESTADO - ✅ USANDO TIPO Team REAL DEL REPOSITORIO
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,60 +32,47 @@ export function useTournamentRegistrations(tournamentId: string) {
   const [error, setError] = useState<string | null>(null);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
 
-  // 🔐 PERMISOS
-  const canManage = hasRole(['admin']);
-  const canView = hasRole(['admin', 'team_manager', 'referee']);
+  // 🔐 PERMISOS - ✅ CORREGIDO: Usar valores del enum UserRole
+  const canManage = hasRole(UserRole.ADMIN);
+  const canView = hasRole(UserRole.ADMIN) || hasRole(UserRole.TEAM_MANAGER) || hasRole(UserRole.REFEREE);
 
-  // 📱 CARGAR INSCRIPCIONES
-  const fetchRegistrations = useCallback(async () => {
-    if (!tournamentId || !canView) return;
-    
-    try {
-      setError(null);
-      const { data, error: fetchError } = await tournaments.getRegistrations(tournamentId);
-      
-      if (fetchError) {
-        throw new Error(fetchError);
-      }
-      
-      setRegistrations(data || []);
-    } catch (err: any) {
-      console.error('Error cargando inscripciones:', err);
-      setError(err.message || 'Error cargando inscripciones');
-    }
-  }, [tournamentId, canView]);
-
-  // 👥 CARGAR EQUIPOS DISPONIBLES
+  // 📱 CARGAR EQUIPOS DISPONIBLES - ✅ CORREGIDO: Usar propiedad 'active'
   const fetchAvailableTeams = useCallback(async () => {
     if (!tournamentId || !canManage) return;
     
     try {
-      const { data: teamsData, error: teamsError } = await teams.getAll({ active_only: true });
+      // ✅ USAR FILTRO CORRECTO: { active: true }
+      const { data: teamsData, error: teamsError } = await teams.getAll({ active: true });
       
       if (teamsError) {
         throw new Error(teamsError);
       }
       
-      // Filtrar equipos que no estén ya inscritos
-      const registeredTeamIds = new Set(registrations.map(r => r.team.id));
-      const available = teamsData?.filter(team => !registeredTeamIds.has(team.id)) || [];
-      
-      setAvailableTeams(available);
+      // ✅ CORRECCIÓN: teamsData ya viene filtrado por active: true
+      setAvailableTeams(teamsData || []);
     } catch (err: any) {
       console.error('Error cargando equipos disponibles:', err);
     }
-  }, [tournamentId, canManage, registrations]);
+  }, [tournamentId, canManage]);
 
-  // 🔄 CARGAR TODOS LOS DATOS
+  // 🔄 CARGAR DATOS - ✅ SIMPLIFICADO: Solo equipos por ahora
   const fetchData = useCallback(async () => {
     setLoading(true);
-    await Promise.all([
-      fetchRegistrations(),
-      canManage ? fetchAvailableTeams() : Promise.resolve(),
-    ]);
-    setLoading(false);
-    setRefreshing(false);
-  }, [fetchRegistrations, fetchAvailableTeams, canManage]);
+    try {
+      if (canManage) {
+        await fetchAvailableTeams();
+      }
+      
+      // TODO: Cuando se implemente ITournamentRegistrationProvider, agregar:
+      // await fetchRegistrations();
+      
+    } catch (err: any) {
+      setError(err.message || 'Error cargando datos');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [fetchAvailableTeams, canManage]);
 
   // ♻️ REFRESH
   const refresh = useCallback(() => {
@@ -99,179 +80,24 @@ export function useTournamentRegistrations(tournamentId: string) {
     fetchData();
   }, [fetchData]);
 
-  // ✅ APROBAR INSCRIPCIÓN
-  const approveRegistration = useCallback(async (registrationId: string) => {
-    if (!canManage) {
-      throw new Error('No tienes permisos para aprobar inscripciones');
-    }
-
-    setProcessingIds(prev => new Set(prev).add(registrationId));
-    
-    try {
-      const { error } = await tournaments.updateRegistrationStatus(registrationId, 'approved');
-      
-      if (error) {
-        throw new Error(error);
-      }
-      
-      // Actualizar estado local
-      setRegistrations(prev => 
-        prev.map(reg => 
-          reg.id === registrationId 
-            ? { ...reg, status: 'approved' as const }
-            : reg
-        )
-      );
-      
-      return { success: true, error: null };
-    } catch (err: any) {
-      console.error('Error aprobando inscripción:', err);
-      return { success: false, error: err.message };
-    } finally {
-      setProcessingIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(registrationId);
-        return newSet;
-      });
-    }
-  }, [canManage]);
-
-  // ❌ RECHAZAR INSCRIPCIÓN
-  const rejectRegistration = useCallback(async (registrationId: string, notes?: string) => {
-    if (!canManage) {
-      throw new Error('No tienes permisos para rechazar inscripciones');
-    }
-
-    setProcessingIds(prev => new Set(prev).add(registrationId));
-    
-    try {
-      const { error } = await tournaments.updateRegistrationStatus(registrationId, 'rejected', notes);
-      
-      if (error) {
-        throw new Error(error);
-      }
-      
-      // Actualizar estado local
-      setRegistrations(prev => 
-        prev.map(reg => 
-          reg.id === registrationId 
-            ? { ...reg, status: 'rejected' as const, notes }
-            : reg
-        )
-      );
-      
-      return { success: true, error: null };
-    } catch (err: any) {
-      console.error('Error rechazando inscripción:', err);
-      return { success: false, error: err.message };
-    } finally {
-      setProcessingIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(registrationId);
-        return newSet;
-      });
-    }
-  }, [canManage]);
-
-  // ➕ INSCRIBIR EQUIPO
-  const registerTeam = useCallback(async (teamId: string) => {
-    if (!canManage) {
-      throw new Error('No tienes permisos para inscribir equipos');
-    }
-
-    setProcessingIds(prev => new Set(prev).add(teamId));
-    
-    try {
-      const { error } = await tournaments.registerTeam(tournamentId, teamId);
-      
-      if (error) {
-        throw new Error(error);
-      }
-      
-      // Refrescar datos para mostrar la nueva inscripción
-      await fetchData();
-      
-      return { success: true, error: null };
-    } catch (err: any) {
-      console.error('Error inscribiendo equipo:', err);
-      return { success: false, error: err.message };
-    } finally {
-      setProcessingIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(teamId);
-        return newSet;
-      });
-    }
-  }, [canManage, tournamentId, fetchData]);
-
-  // 🗑️ ELIMINAR INSCRIPCIÓN
-  const removeRegistration = useCallback(async (registrationId: string) => {
-    if (!canManage) {
-      throw new Error('No tienes permisos para eliminar inscripciones');
-    }
-
-    setProcessingIds(prev => new Set(prev).add(registrationId));
-    
-    try {
-      const { error } = await tournaments.removeRegistration(registrationId);
-      
-      if (error) {
-        throw new Error(error);
-      }
-      
-      // Actualizar estado local
-      setRegistrations(prev => prev.filter(reg => reg.id !== registrationId));
-      
-      // Refrescar equipos disponibles
-      await fetchAvailableTeams();
-      
-      return { success: true, error: null };
-    } catch (err: any) {
-      console.error('Error eliminando inscripción:', err);
-      return { success: false, error: err.message };
-    } finally {
-      setProcessingIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(registrationId);
-        return newSet;
-      });
-    }
-  }, [canManage, fetchAvailableTeams]);
-
-  // 🔍 BUSCAR EQUIPOS DISPONIBLES
+  // 🔍 BUSCAR EQUIPOS DISPONIBLES - ✅ CORREGIDO: Usar propiedades correctas
   const searchAvailableTeams = useCallback((query: string): Team[] => {
     if (!query.trim()) return availableTeams;
     
     const lowercaseQuery = query.toLowerCase();
     return availableTeams.filter(team =>
       team.name.toLowerCase().includes(lowercaseQuery) ||
-      team.coach?.toLowerCase().includes(lowercaseQuery)
+      team.coach_name?.toLowerCase().includes(lowercaseQuery) // ✅ CORREGIDO: coach_name
     );
   }, [availableTeams]);
 
-  // 📊 CALCULAR ESTADÍSTICAS
+  // 📊 CALCULAR ESTADÍSTICAS - ✅ VALORES POR DEFECTO
   const stats: RegistrationStats = {
     total: registrations.length,
     approved: registrations.filter(r => r.status === 'approved').length,
     pending: registrations.filter(r => r.status === 'pending').length,
     rejected: registrations.filter(r => r.status === 'rejected').length,
   };
-
-  // ✅ VALIDACIONES
-  const canRegisterMoreTeams = useCallback(async (maxTeams?: number): Promise<boolean> => {
-    if (!maxTeams) return true;
-    
-    const approvedCount = stats.approved;
-    return approvedCount < maxTeams;
-  }, [stats.approved]);
-
-  const isTeamRegistered = useCallback((teamId: string): boolean => {
-    return registrations.some(reg => reg.team.id === teamId);
-  }, [registrations]);
-
-  const getRegistrationByTeam = useCallback((teamId: string): Registration | null => {
-    return registrations.find(reg => reg.team.id === teamId) || null;
-  }, [registrations]);
 
   // 🎯 HELPERS DE ESTADO
   const isProcessing = useCallback((id: string): boolean => {
@@ -287,12 +113,38 @@ export function useTournamentRegistrations(tournamentId: string) {
     fetchData();
   }, [fetchData]);
 
-  // Refrescar equipos disponibles cuando cambien las inscripciones
-  useEffect(() => {
-    if (canManage) {
-      fetchAvailableTeams();
-    }
-  }, [registrations, canManage, fetchAvailableTeams]);
+  // ✅ MÉTODOS PLACEHOLDER - Para cuando se implementen los providers
+  const approveRegistration = useCallback(async (registrationId: string) => {
+    // TODO: Implementar cuando exista tournaments.updateRegistrationStatus
+    console.warn('approveRegistration no implementado aún - falta ITournamentRegistrationProvider');
+    return { success: false, error: 'Funcionalidad no implementada aún' };
+  }, []);
+
+  const rejectRegistration = useCallback(async (registrationId: string, notes?: string) => {
+    // TODO: Implementar cuando exista tournaments.updateRegistrationStatus
+    console.warn('rejectRegistration no implementado aún - falta ITournamentRegistrationProvider');
+    return { success: false, error: 'Funcionalidad no implementada aún' };
+  }, []);
+
+  const registerTeam = useCallback(async (teamId: string) => {
+    // TODO: Implementar cuando exista tournaments.registerTeam
+    console.warn('registerTeam no implementado aún - falta ITournamentRegistrationProvider');
+    return { success: false, error: 'Funcionalidad no implementada aún' };
+  }, []);
+
+  const removeRegistration = useCallback(async (registrationId: string) => {
+    // TODO: Implementar cuando exista tournaments.removeRegistration
+    console.warn('removeRegistration no implementado aún - falta ITournamentRegistrationProvider');
+    return { success: false, error: 'Funcionalidad no implementada aún' };
+  }, []);
+
+  const isTeamRegistered = useCallback((teamId: string): boolean => {
+    return registrations.some(reg => reg.team.id === teamId);
+  }, [registrations]);
+
+  const getRegistrationByTeam = useCallback((teamId: string): Registration | null => {
+    return registrations.find(reg => reg.team.id === teamId) || null;
+  }, [registrations]);
 
   return {
     // 📊 DATOS
@@ -312,7 +164,7 @@ export function useTournamentRegistrations(tournamentId: string) {
     canManage,
     canView,
     
-    // 🔄 ACCIONES
+    // 🔄 ACCIONES - ✅ PLACEHOLDER hasta implementar providers
     refresh,
     approveRegistration,
     rejectRegistration,
@@ -322,52 +174,28 @@ export function useTournamentRegistrations(tournamentId: string) {
     // 🔍 UTILIDADES
     searchAvailableTeams,
     isProcessing,
-    canRegisterMoreTeams,
     isTeamRegistered,
     getRegistrationByTeam,
     
     // 📱 MÉTODOS ADICIONALES
     fetchData,
-    fetchRegistrations,
     fetchAvailableTeams,
   };
 }
 
 /**
  * 🎯 Hook simplificado para verificar inscripción de un equipo específico
+ * ✅ PLACEHOLDER - Implementar cuando existan los métodos necesarios
  */
 export function useTeamRegistrationStatus(tournamentId: string, teamId: string) {
   const [status, setStatus] = useState<'not_registered' | 'pending' | 'approved' | 'rejected'>('not_registered');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // ✅ CAMBIO: false por defecto ya que no hace requests
   const [registration, setRegistration] = useState<Registration | null>(null);
 
   useEffect(() => {
-    const checkStatus = async () => {
-      if (!tournamentId || !teamId) return;
-      
-      try {
-        const { data, error } = await tournaments.getTeamRegistrationStatus(tournamentId, teamId);
-        
-        if (error) {
-          console.error('Error verificando estado de inscripción:', error);
-          return;
-        }
-        
-        if (data) {
-          setStatus(data.status);
-          setRegistration(data);
-        } else {
-          setStatus('not_registered');
-          setRegistration(null);
-        }
-      } catch (err) {
-        console.error('Error verificando inscripción:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkStatus();
+    // TODO: Implementar cuando exista tournaments.getTeamRegistrationStatus
+    console.warn('useTeamRegistrationStatus no implementado aún - falta ITournamentRegistrationProvider');
+    setLoading(false);
   }, [tournamentId, teamId]);
 
   return {

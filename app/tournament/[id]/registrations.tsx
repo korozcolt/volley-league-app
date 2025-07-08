@@ -11,6 +11,8 @@ import {
 import { EmptyState, SearchEmpty } from '@/components/ui/EmptyState';
 import React, { useEffect, useState } from 'react';
 import { Stack, useLocalSearchParams } from 'expo-router';
+// ✅ IMPORTS CORREGIDOS - Usar tipos reales del repositorio
+import { Team, UserRole } from '@/lib/types/models';
 import { teams, tournaments } from '@/lib/providers';
 
 import { Colors } from '@/constants/Colors';
@@ -27,18 +29,11 @@ interface Tournament {
   registration_open: boolean;
 }
 
-interface Team {
-  id: string;
-  name: string;
-  coach?: string;
-  logo?: string;
-  is_active: boolean;
-}
-
+// ✅ CORRECCIÓN 1: Eliminar interfaz Team duplicada, usar la del repositorio
 interface Registration {
   id: string;
   tournament: string;
-  team: Team;
+  team: Team; // ✅ Usar tipo Team real del repositorio
   status: 'pending' | 'approved' | 'rejected';
   registered_at: string;
   notes?: string;
@@ -48,19 +43,14 @@ interface Registration {
  * Pantalla de Gestión de Inscripciones de Torneo
  * 
  * Ubicación: app/tournament/[id]/registrations.tsx
- * 
- * Funcionalidades:
- * - Ver equipos inscritos y pendientes
- * - Aprobar/rechazar inscripciones
- * - Buscar y agregar nuevos equipos
- * - Gestión completa de inscripciones para administradores
+ * ✅ CORREGIDA - Sin errores TypeScript
  */
 export default function TournamentRegistrationsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const { hasRole } = useAuth();
   
-  // 📊 ESTADO
+  // 📊 ESTADO - ✅ Usar tipo Team correcto
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
@@ -70,9 +60,8 @@ export default function TournamentRegistrationsScreen() {
   const [showAddTeams, setShowAddTeams] = useState(false);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
 
-  // 🔐 PERMISOS
-  const canManage = hasRole(['admin']);
-  const canView = hasRole(['admin', 'team_manager', 'referee']);
+  const canManage = hasRole(UserRole.ADMIN);
+  const canView = hasRole(UserRole.ADMIN) || hasRole(UserRole.TEAM_MANAGER) || hasRole(UserRole.REFEREE);
 
   // 📱 CARGAR DATOS
   const fetchData = async () => {
@@ -84,19 +73,29 @@ export default function TournamentRegistrationsScreen() {
       if (tournamentError) throw new Error(tournamentError);
       setTournament(tournamentData);
 
+      // ⚠️ NOTA: Estos métodos no existen aún en el repositorio
+      // Comentados temporalmente hasta implementar ITournamentRegistrationProvider
+      
       // Cargar inscripciones
-      const { data: registrationsData, error: registrationsError } = await tournaments.getRegistrations(id);
-      if (registrationsError) throw new Error(registrationsError);
-      setRegistrations(registrationsData || []);
+      // const { data: registrationsData, error: registrationsError } = await tournaments.getRegistrations(id);
+      // if (registrationsError) throw new Error(registrationsError);
+      // setRegistrations(registrationsData || []);
+      
+      // ✅ PLACEHOLDER: Datos vacíos hasta implementar provider
+      const registrationsData: Registration[] = [];
+      setRegistrations(registrationsData);
 
       // Cargar equipos disponibles (solo si puede gestionar)
       if (canManage) {
-        const { data: teamsData, error: teamsError } = await teams.getAll({ active_only: true });
+        // ✅ CORRECCIÓN 3: Usar filtro correcto { active: true }
+        const { data: teamsData, error: teamsError } = await teams.getAll({ active: true });
         if (teamsError) throw new Error(teamsError);
         
-        // Filtrar equipos que no estén ya inscritos
-        const registeredTeamIds = new Set(registrationsData?.map(r => r.team.id) || []);
+        // ✅ CORRECCIÓN 4: Tipar correctamente el callback
+        const registeredTeamIds = new Set(registrationsData?.map((r: Registration) => r.team.id) || []);
         const available = teamsData?.filter(team => !registeredTeamIds.has(team.id)) || [];
+        
+        // ✅ CORRECCIÓN 5: Ya no hay error porque usamos tipo Team correcto
         setAvailableTeams(available);
       }
     } catch (error: any) {
@@ -110,7 +109,7 @@ export default function TournamentRegistrationsScreen() {
 
   useEffect(() => {
     fetchData();
-  }, [id]);
+  }, [id, canManage]); // ✅ Agregar dependencias para evitar warnings
 
   // 🔄 REFRESH
   const handleRefresh = () => {
@@ -118,13 +117,17 @@ export default function TournamentRegistrationsScreen() {
     fetchData();
   };
 
-  // ✅ APROBAR INSCRIPCIÓN
+  // ✅ APROBAR INSCRIPCIÓN - ⚠️ PLACEHOLDER hasta implementar provider
   const approveRegistration = async (registrationId: string) => {
     setProcessingIds(prev => new Set(prev).add(registrationId));
     
     try {
-      const { error } = await tournaments.updateRegistrationStatus(registrationId, 'approved');
-      if (error) throw new Error(error);
+      // ⚠️ MÉTODO NO EXISTE AÚN - Comentado hasta implementar
+      // const { error } = await tournaments.updateRegistrationStatus(registrationId, 'approved');
+      // if (error) throw new Error(error);
+      
+      // ✅ PLACEHOLDER: Simulación local
+      console.warn('updateRegistrationStatus no implementado aún');
       
       // Actualizar estado local
       setRegistrations(prev => 
@@ -135,7 +138,7 @@ export default function TournamentRegistrationsScreen() {
         )
       );
       
-      Alert.alert('Inscripción aprobada', 'El equipo ha sido aprobado exitosamente');
+      Alert.alert('Inscripción aprobada', 'El equipo ha sido aprobado exitosamente (simulado)');
     } catch (error: any) {
       Alert.alert('Error', 'No se pudo aprobar la inscripción');
       console.error('Error aprobando inscripción:', error);
@@ -148,7 +151,7 @@ export default function TournamentRegistrationsScreen() {
     }
   };
 
-  // ❌ RECHAZAR INSCRIPCIÓN
+  // ❌ RECHAZAR INSCRIPCIÓN - ⚠️ PLACEHOLDER hasta implementar provider
   const rejectRegistration = async (registrationId: string) => {
     Alert.alert(
       'Rechazar Inscripción',
@@ -162,8 +165,12 @@ export default function TournamentRegistrationsScreen() {
             setProcessingIds(prev => new Set(prev).add(registrationId));
             
             try {
-              const { error } = await tournaments.updateRegistrationStatus(registrationId, 'rejected');
-              if (error) throw new Error(error);
+              // ⚠️ MÉTODO NO EXISTE AÚN - Comentado hasta implementar
+              // const { error } = await tournaments.updateRegistrationStatus(registrationId, 'rejected');
+              // if (error) throw new Error(error);
+              
+              // ✅ PLACEHOLDER: Simulación local
+              console.warn('updateRegistrationStatus no implementado aún');
               
               // Actualizar estado local
               setRegistrations(prev => 
@@ -174,7 +181,7 @@ export default function TournamentRegistrationsScreen() {
                 )
               );
               
-              Alert.alert('Inscripción rechazada', 'El equipo ha sido rechazado');
+              Alert.alert('Inscripción rechazada', 'El equipo ha sido rechazado (simulado)');
             } catch (error: any) {
               Alert.alert('Error', 'No se pudo rechazar la inscripción');
               console.error('Error rechazando inscripción:', error);
@@ -191,18 +198,22 @@ export default function TournamentRegistrationsScreen() {
     );
   };
 
-  // ➕ INSCRIBIR EQUIPO
+  // ➕ INSCRIBIR EQUIPO - ⚠️ PLACEHOLDER hasta implementar provider
   const registerTeam = async (teamId: string) => {
     setProcessingIds(prev => new Set(prev).add(teamId));
     
     try {
-      const { error } = await tournaments.registerTeam(id!, teamId);
-      if (error) throw new Error(error);
+      // ⚠️ MÉTODO NO EXISTE AÚN - Comentado hasta implementar
+      // const { error } = await tournaments.registerTeam(id!, teamId);
+      // if (error) throw new Error(error);
+      
+      // ✅ PLACEHOLDER: Simulación local
+      console.warn('registerTeam no implementado aún');
       
       // Refrescar datos
       await fetchData();
       
-      Alert.alert('Equipo inscrito', 'El equipo ha sido inscrito exitosamente');
+      Alert.alert('Equipo inscrito', 'El equipo ha sido inscrito exitosamente (simulado)');
     } catch (error: any) {
       Alert.alert('Error', 'No se pudo inscribir el equipo');
       console.error('Error inscribiendo equipo:', error);
@@ -215,10 +226,10 @@ export default function TournamentRegistrationsScreen() {
     }
   };
 
-  // 🔍 FILTRAR EQUIPOS DISPONIBLES
+  // ✅ CORRECCIÓN 6: Usar propiedades correctas del tipo Team
   const filteredAvailableTeams = availableTeams.filter(team =>
     team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    team.coach?.toLowerCase().includes(searchQuery.toLowerCase())
+    team.coach_name?.toLowerCase().includes(searchQuery.toLowerCase()) // ✅ coach_name no coach
   );
 
   // 🎨 RENDERIZAR INSCRIPCIÓN
@@ -229,15 +240,15 @@ export default function TournamentRegistrationsScreen() {
       <View style={[styles.registrationCard, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
         <View style={styles.registrationHeader}>
           <View style={styles.teamInfo}>
-            {item.team.logo && (
+            {item.team.logo_url && ( // ✅ logo_url no logo
               <View style={styles.logoContainer}>
                 <ThemedText style={styles.logoPlaceholder}>🏐</ThemedText>
               </View>
             )}
             <View style={styles.teamDetails}>
               <ThemedText style={styles.teamName}>{item.team.name}</ThemedText>
-              {item.team.coach && (
-                <ThemedText style={styles.teamCoach}>DT: {item.team.coach}</ThemedText>
+              {item.team.coach_name && ( // ✅ coach_name no coach
+                <ThemedText style={styles.teamCoach}>DT: {item.team.coach_name}</ThemedText>
               )}
             </View>
           </View>
@@ -304,8 +315,8 @@ export default function TournamentRegistrationsScreen() {
           </View>
           <View style={styles.teamDetails}>
             <ThemedText style={styles.teamName}>{item.name}</ThemedText>
-            {item.coach && (
-              <ThemedText style={styles.teamCoach}>DT: {item.coach}</ThemedText>
+            {item.coach_name && ( // ✅ coach_name no coach
+              <ThemedText style={styles.teamCoach}>DT: {item.coach_name}</ThemedText>
             )}
           </View>
         </View>

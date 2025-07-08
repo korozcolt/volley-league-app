@@ -13,8 +13,9 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { UserRole } from '@/lib/types/models';
 import { matches } from '@/lib/providers';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface Match {
@@ -57,8 +58,8 @@ export default function MatchDetailsScreen() {
   const [currentSet, setCurrentSet] = useState(1);
 
   // 🔐 PERMISOS
-  const canScore = hasRole(['admin', 'referee']) || match?.referee?.id === user?.id;
-  const canManage = hasRole(['admin']);
+  const canScore = hasRole(UserRole.ADMIN) || hasRole(UserRole.TEAM_MANAGER) || hasRole(UserRole.REFEREE) || match?.referee?.id === user?.id;
+  const canManage = (UserRole.ADMIN);
 
   // 📱 CARGAR DATOS
   const fetchMatch = async () => {

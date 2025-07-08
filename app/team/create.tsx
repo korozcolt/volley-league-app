@@ -19,7 +19,7 @@ import { Colors } from '@/constants/Colors';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { teams } from '@/lib/providers';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 interface TeamFormData {
