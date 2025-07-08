@@ -263,7 +263,7 @@ export default function DashboardScreen() {
         {/* 👋 SALUDO PERSONALIZADO */}
         <Surface className="p-4 mb-4 rounded-lg" mode="elevated">
           <Text variant="headlineSmall" className="mb-1">
-            ¡Hola, {user?.name || user?.email?.split('@')[0] || 'Usuario'}! 👋 {/* ✅ CORRECCIÓN: usar propiedades existentes */}
+            ¡Hola, {user?.name || user?.email?.split('@')[0] || 'Usuario'}! 👋
           </Text>
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
             Bienvenido a la Liga de Voleibol

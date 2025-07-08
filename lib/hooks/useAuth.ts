@@ -16,7 +16,6 @@ type AuthResponse = {
     signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
     signOut: () => Promise<{ error: Error | null }>;
     isAdmin: () => boolean;
-    // ✅ AGREGAR FUNCIONES FALTANTES
     hasRole: (role: UserRole) => boolean;
     isReferee: () => boolean;
     isCoach: () => boolean;
