@@ -27,18 +27,6 @@ interface RegistrationStats {
   rejected: number;
 }
 
-/**
- * Hook para gestión completa de inscripciones de torneo
- * 
- * Ubicación: lib/hooks/useTournamentRegistrations.ts
- * 
- * Funcionalidades:
- * - Cargar y gestionar inscripciones
- * - Aprobar/rechazar inscripciones
- * - Buscar y agregar equipos disponibles
- * - Estadísticas en tiempo real
- * - Validaciones de permisos
- */
 export function useTournamentRegistrations(tournamentId: string) {
   const { hasRole } = useAuth();
   
